@@ -5,38 +5,38 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 type storage interface {
-	Keys() ([]string, error)
+	Keys() []string
+	TTL(key string) (time.Duration, error)
 	Get(key string) (string, error)
-	Set(key, value string) error
+	Set(key, value string, ttl time.Duration) error
 	Update(key, value string) error
 	Delete(key string) error
 	HashGet(key, field string) (string, error)
-	HashSet(key, field, value string) error
+	HashSet(key, field, value string, ttl time.Duration) error
 	HashUpdate(key, field, value string) error
 	HashDelete(key, field string) error
 	HashLen(key string) (int, error)
 	HashKeys(key string) ([]string, error)
 	ListLeftPop(key string) (string, error)
 	ListRightPop(key string) (string, error)
-	ListLeftPush(key, value string) error
-	ListRightPush(key, value string) error
-	ListSet(key string, index int, value string) error
+	ListLeftPush(key, value string, ttl time.Duration) error
+	ListRightPush(key, value string, ttl time.Duration) error
+	ListSet(key string, index int, value string, ttl time.Duration) error
 	ListIndex(key string, index int) (string, error)
 	ListLen(key string) (int, error)
 	ListDelete(key string, count int, value string) error
 	ListRange(key string, start, stop int) ([]string, error)
 }
 
-type command interface {
-	run(session *session, params []string) string
-}
+type commandFunc func(session *session, params string) string
 
 type server struct {
 	storage  storage
-	commands map[string]command
+	commands map[string]commandFunc
 }
 
 type session struct {
@@ -48,10 +48,12 @@ type session struct {
 func New() *server {
 	return &server{
 		storage: NewMemoryStorage(),
-		commands: map[string]command{
-			"GET": &getCommand{},
-			"SET": &setCommand{},
-			"DEL": &delCommand{},
+		commands: map[string]commandFunc{
+			"KEYS": keysCommand,
+			"TTL":  ttlCommand,
+			"GET":  getCommand,
+			"SET":  setCommand,
+			"DEL":  delCommand,
 		},
 	}
 }
@@ -96,17 +98,15 @@ func (s *session) handleCommand() error {
 	}
 
 	if len(line) > 0 {
-		log.Printf("line: %s", string(line))
-
-		parts := strings.Fields(string(line))
+		parts := strings.SplitN(string(line), " ", 2)
 
 		var response string
 		if command, found := s.server.commands[parts[0]]; found {
-			var params []string
-			if len(parts) > 0 {
-				params = parts[1:]
+			var params string
+			if len(parts) > 1 {
+				params = parts[1]
 			}
-			response = command.run(s, params)
+			response = command(s, params)
 		} else {
 			response = unknownCommandResponse
 		}
