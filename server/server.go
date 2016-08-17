@@ -15,9 +15,10 @@ type storage interface {
 	Set(key, value string, ttl time.Duration) error
 	Update(key, value string) error
 	Delete(key string) error
+	HashCreate(key string, ttl time.Duration) error
 	HashGet(key, field string) (string, error)
-	HashSet(key, field, value string, ttl time.Duration) error
-	HashUpdate(key, field, value string) error
+	HashGetAll(key string) (Hash, error)
+	HashSet(key, field, value string) error
 	HashDelete(key, field string) error
 	HashLen(key string) (int, error)
 	HashKeys(key string) ([]string, error)
@@ -49,11 +50,15 @@ func New() *server {
 	return &server{
 		storage: NewMemoryStorage(),
 		commands: map[string]commandFunc{
-			"KEYS": keysCommand,
-			"TTL":  ttlCommand,
-			"GET":  getCommand,
-			"SET":  setCommand,
-			"DEL":  delCommand,
+			"KEYS":    keysCommand,
+			"TTL":     ttlCommand,
+			"GET":     getCommand,
+			"SET":     setCommand,
+			"DEL":     delCommand,
+			"HCREATE": hashCreateCommand,
+			"HGETALL": hashGetAllCommand,
+			"HGET":    hashGetCommand,
+			"HSET":    hashSetCommand,
 		},
 	}
 }
