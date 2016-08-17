@@ -1,0 +1,6 @@
+hash: 67fc7371074f3119a56df72eba0bfbaa84396d197c175e7cad27809e9bd4e391
+updated: 2016-08-17T15:05:27.73635248+03:00
+imports:
+- name: github.com/hashicorp/golang-lru
+  version: 0a025b7e63adc15a622f29b0b2c4c3848243bbf6
+devImports: []
