@@ -3,22 +3,22 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"github.com/Barberrrry/jcache/server/htpasswd"
 	"io"
 	"log"
-	"net"
 	"strings"
+
+	"github.com/Barberrrry/jcache/server/htpasswd"
 )
 
 type session struct {
+	id             string
 	rw             io.ReadWriter
 	commands       map[string]*command
 	isAuthRequired bool
 	isAuthorized   bool
-	remoteAddr     string
 }
 
-func newSession(conn net.Conn, storage storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
+func newSession(id string, rw io.ReadWriter, storage storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
 	commands := map[string]*command{
 		"KEYS":    newKeysCommand(storage),
 		"TTL":     newTTLCommand(storage),
@@ -43,9 +43,9 @@ func newSession(conn net.Conn, storage storage, htpasswdFile *htpasswd.HtpasswdF
 	}
 
 	s := &session{
-		rw:         conn,
-		commands:   commands,
-		remoteAddr: conn.RemoteAddr().String(),
+		id:       id,
+		rw:       rw,
+		commands: commands,
 	}
 
 	if htpasswdFile != nil {
@@ -115,5 +115,5 @@ func (s *session) authorize() {
 }
 
 func (s *session) log(message string) {
-	log.Printf("[%s] %s", s.remoteAddr, message)
+	log.Printf("[%s] %s", s.id, message)
 }

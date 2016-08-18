@@ -65,6 +65,6 @@ func (s *server) ListenAndServe(addr string) {
 			continue
 		}
 
-		go newSession(conn, s.storage, s.htpasswdFile).serve()
+		go newSession(conn.RemoteAddr().String(), conn, s.storage, s.htpasswdFile).serve()
 	}
 }
