@@ -32,11 +32,9 @@ type storage interface {
 	ListRange(key string, start, stop int) ([]string, error)
 }
 
-type commandFunc func(session *session, params string) string
-
 type server struct {
 	storage  storage
-	commands map[string]commandFunc
+	commands map[string]*command
 }
 
 type session struct {
@@ -48,7 +46,7 @@ type session struct {
 func New() *server {
 	return &server{
 		storage: memory.NewStorage(),
-		commands: map[string]commandFunc{
+		commands: map[string]*command{
 			"KEYS":    keysCommand,
 			"TTL":     ttlCommand,
 			"GET":     getCommand,
@@ -117,11 +115,20 @@ func (s *session) handleCommand() error {
 
 		var response string
 		if command, found := s.server.commands[parts[0]]; found {
-			var params string
+			var arguments string
 			if len(parts) > 1 {
-				params = parts[1]
+				arguments = parts[1]
 			}
-			response = command(s, params)
+			matches := command.format.FindStringSubmatch(arguments)
+			if len(matches) > 0 {
+				var params []string
+				if len(matches) > 1 {
+					params = matches[1:]
+				}
+				response = command.run(s, params)
+			} else {
+				response = invalidFormatResponse
+			}
 		} else {
 			response = unknownCommandResponse
 		}
