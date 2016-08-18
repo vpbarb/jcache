@@ -334,3 +334,38 @@ func (s *StorageTestSuite) TestListPushAndPop(c *C) {
 	err = storage.ListRightPush("key3", "value3")
 	c.Assert(err, ErrorMatches, `Key "key3" does not exist`)
 }
+
+func (s *StorageTestSuite) TestListRange(c *C) {
+	storage := NewStorage()
+
+	storage.ListCreate("key", time.Duration(0))
+	storage.ListRightPush("key", "0")
+	storage.ListRightPush("key", "1")
+	storage.ListRightPush("key", "2")
+	storage.ListRightPush("key", "3")
+	storage.ListRightPush("key", "4")
+
+	values1, err1 := storage.ListRange("key", 0, 0)
+	c.Assert(err1, IsNil)
+	c.Assert(values1, DeepEquals, []string{"0"})
+
+	values2, err2 := storage.ListRange("key", 1, 2)
+	c.Assert(err2, IsNil)
+	c.Assert(values2, DeepEquals, []string{"1", "2"})
+
+	values3, err3 := storage.ListRange("key", -1, 1)
+	c.Assert(err3, IsNil)
+	c.Assert(values3, DeepEquals, []string{"0", "1"})
+
+	values4, err4 := storage.ListRange("key", 3, 100)
+	c.Assert(err4, IsNil)
+	c.Assert(values4, DeepEquals, []string{"3", "4"})
+
+	// Get range of non-existing list and non-list value
+	var err error
+	storage.Set("key2", "value2", time.Duration(0))
+	_, err = storage.ListRange("key2", 0, 0)
+	c.Assert(err, ErrorMatches, `Key type is not list`)
+	_, err = storage.ListRange("key3", 0, 0)
+	c.Assert(err, ErrorMatches, `Key "key3" does not exist`)
+}

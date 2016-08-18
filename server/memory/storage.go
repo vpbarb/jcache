@@ -343,3 +343,31 @@ func (s *storage) ListLen(key string) (int, error) {
 
 	return list.Len(), nil
 }
+
+// ListRange returns list of elements from the list from start to stop index.
+// Error will occur if key doesn't exist or key type is not list.
+func (s *storage) ListRange(key string, start, stop int) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	list, err := s.getList(key)
+	if err != nil {
+		return nil, err
+	}
+
+	var values []string
+	e := list.Front()
+	i := 0
+	for {
+		if e == nil || i > stop {
+			break
+		}
+		if i >= start {
+			values = append(values, e.Value.(string))
+		}
+		e = e.Next()
+		i++
+	}
+
+	return values, nil
+}

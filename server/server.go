@@ -29,6 +29,7 @@ type storage interface {
 	ListLeftPush(key, value string) error
 	ListRightPush(key, value string) error
 	ListLen(key string) (int, error)
+	ListRange(key string, start, stop int) ([]string, error)
 }
 
 type commandFunc func(session *session, params string) string
@@ -67,6 +68,7 @@ func New() *server {
 			//"LLPUSH":  listLeftPushCommand,
 			//"LRPUSH":  listRightPushCommand,
 			//"LLEN":    listLenCommand,
+			//"LRANGE":  listRangeCommand,
 		},
 	}
 }
