@@ -3,16 +3,57 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"github.com/Barberrrry/jcache/server/htpasswd"
+	"io"
 	"log"
 	"net"
 	"strings"
 )
 
 type session struct {
-	conn         net.Conn
-	server       *server
-	isAuthorized bool
-	remoteAddr   string
+	rw             io.ReadWriter
+	commands       map[string]*command
+	isAuthRequired bool
+	isAuthorized   bool
+	remoteAddr     string
+}
+
+func newSession(conn net.Conn, storage storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
+	commands := map[string]*command{
+		"KEYS":    newKeysCommand(storage),
+		"TTL":     newTTLCommand(storage),
+		"GET":     newGetCommand(storage),
+		"SET":     newSetCommand(storage),
+		"DEL":     newDelCommand(storage),
+		"UPD":     newUpdCommand(storage),
+		"HCREATE": newHashCreateCommand(storage),
+		"HGETALL": newHashGetAllCommand(storage),
+		"HGET":    newHashGetCommand(storage),
+		"HSET":    newHashSetCommand(storage),
+		"HDEL":    newHashDelCommand(storage),
+		"HLEN":    newHashLenCommand(storage),
+		"HKEYS":   newHashKeysCommand(storage),
+		"LCREATE": newListCreateCommand(storage),
+		"LLPOP":   newListLeftPopCommand(storage),
+		"LRPOP":   newListRightPopCommand(storage),
+		"LLPUSH":  newListLeftPushCommand(storage),
+		"LRPUSH":  newListRightPushCommand(storage),
+		"LLEN":    newListLenCommand(storage),
+		"LRANGE":  newListRangeCommand(storage),
+	}
+
+	s := &session{
+		rw:         conn,
+		commands:   commands,
+		remoteAddr: conn.RemoteAddr().String(),
+	}
+
+	if htpasswdFile != nil {
+		s.isAuthRequired = true
+		s.commands["AUTH"] = newAuthCommand(htpasswdFile, s)
+	}
+
+	return s
 }
 
 func (s *session) serve() {
@@ -26,7 +67,7 @@ func (s *session) serve() {
 }
 
 func (s *session) handleInput() error {
-	buf := bufio.NewReader(s.conn)
+	buf := bufio.NewReader(s.rw)
 	line, _, err := buf.ReadLine()
 
 	if err != nil {
@@ -35,8 +76,8 @@ func (s *session) handleInput() error {
 
 	if len(line) > 0 {
 		if response := s.handleCommand(string(line)); len(response) > 0 {
-			s.conn.Write([]byte(response))
-			s.conn.Write([]byte("\n"))
+			s.rw.Write([]byte(response))
+			s.rw.Write([]byte("\n"))
 		}
 	}
 
@@ -45,8 +86,8 @@ func (s *session) handleInput() error {
 
 func (s *session) handleCommand(line string) string {
 	parts := strings.SplitN(line, " ", 2)
-	if command, found := s.server.commands[parts[0]]; found {
-		if s.server.isAuthEnabled && !command.allowGuest && !s.isAuthorized {
+	if command, found := s.commands[parts[0]]; found {
+		if s.isAuthRequired && !command.allowGuest && !s.isAuthorized {
 			return needAuthResponse
 		}
 
@@ -61,7 +102,7 @@ func (s *session) handleCommand(line string) string {
 				params = matches[1:]
 			}
 			s.log(fmt.Sprintf("run %s", parts[0]))
-			return command.run(s, params)
+			return command.run(params)
 		}
 		return invalidFormatResponse
 	}

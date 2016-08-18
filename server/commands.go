@@ -28,25 +28,25 @@ const (
 
 type command struct {
 	format     *regexp.Regexp
-	run        func(session *session, params []string) string
+	run        func(params []string) string
 	allowGuest bool
 }
 
-func newKeysCommand() *command {
+func newKeysCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile("^$"),
-		run: func(session *session, params []string) string {
-			keys := session.server.storage.Keys()
+		run: func(params []string) string {
+			keys := storage.Keys()
 			return strings.Join(keys, "\n")
 		},
 	}
 }
 
-func newTTLCommand() *command {
+func newTTLCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			ttl, err := session.server.storage.TTL(params[0])
+		run: func(params []string) string {
+			ttl, err := storage.TTL(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -55,11 +55,11 @@ func newTTLCommand() *command {
 	}
 }
 
-func newGetCommand() *command {
+func newGetCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			value, err := session.server.storage.Get(params[0])
+		run: func(params []string) string {
+			value, err := storage.Get(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -68,15 +68,15 @@ func newGetCommand() *command {
 	}
 }
 
-func newSetCommand() *command {
+func newSetCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, valuePattern, ttlPattern)),
-		run: func(session *session, params []string) string {
+		run: func(params []string) string {
 			ttl, err := time.ParseDuration(params[2])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
-			if err := session.server.storage.Set(params[0], params[1], ttl); err != nil {
+			if err := storage.Set(params[0], params[1], ttl); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -84,11 +84,11 @@ func newSetCommand() *command {
 	}
 }
 
-func newUpdCommand() *command {
+func newUpdCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
-		run: func(session *session, params []string) string {
-			if err := session.server.storage.Update(params[0], params[1]); err != nil {
+		run: func(params []string) string {
+			if err := storage.Update(params[0], params[1]); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -96,11 +96,11 @@ func newUpdCommand() *command {
 	}
 }
 
-func newDelCommand() *command {
+func newDelCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			if err := session.server.storage.Delete(params[0]); err != nil {
+		run: func(params []string) string {
+			if err := storage.Delete(params[0]); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -108,15 +108,15 @@ func newDelCommand() *command {
 	}
 }
 
-func newHashCreateCommand() *command {
+func newHashCreateCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
-		run: func(session *session, params []string) string {
+		run: func(params []string) string {
 			ttl, err := time.ParseDuration(params[1])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
-			err = session.server.storage.HashCreate(params[0], ttl)
+			err = storage.HashCreate(params[0], ttl)
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -125,11 +125,11 @@ func newHashCreateCommand() *command {
 	}
 }
 
-func newHashGetAllCommand() *command {
+func newHashGetAllCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			hash, err := session.server.storage.HashGetAll(params[0])
+		run: func(params []string) string {
+			hash, err := storage.HashGetAll(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -143,11 +143,11 @@ func newHashGetAllCommand() *command {
 	}
 }
 
-func newHashGetCommand() *command {
+func newHashGetCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
-		run: func(session *session, params []string) string {
-			value, err := session.server.storage.HashGet(params[0], params[1])
+		run: func(params []string) string {
+			value, err := storage.HashGet(params[0], params[1])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -156,11 +156,11 @@ func newHashGetCommand() *command {
 	}
 }
 
-func newHashSetCommand() *command {
+func newHashSetCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, fieldPattern, valuePattern)),
-		run: func(session *session, params []string) string {
-			if err := session.server.storage.HashSet(params[0], params[1], params[2]); err != nil {
+		run: func(params []string) string {
+			if err := storage.HashSet(params[0], params[1], params[2]); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -168,11 +168,11 @@ func newHashSetCommand() *command {
 	}
 }
 
-func newHashDelCommand() *command {
+func newHashDelCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
-		run: func(session *session, params []string) string {
-			if err := session.server.storage.HashDelete(params[0], params[1]); err != nil {
+		run: func(params []string) string {
+			if err := storage.HashDelete(params[0], params[1]); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -180,11 +180,11 @@ func newHashDelCommand() *command {
 	}
 }
 
-func newHashLenCommand() *command {
+func newHashLenCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			len, err := session.server.storage.HashLen(params[0])
+		run: func(params []string) string {
+			len, err := storage.HashLen(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -193,11 +193,11 @@ func newHashLenCommand() *command {
 	}
 }
 
-func newHashKeysCommand() *command {
+func newHashKeysCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			keys, err := session.server.storage.HashKeys(params[0])
+		run: func(params []string) string {
+			keys, err := storage.HashKeys(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -206,15 +206,15 @@ func newHashKeysCommand() *command {
 	}
 }
 
-func newListCreateCommand() *command {
+func newListCreateCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
-		run: func(session *session, params []string) string {
+		run: func(params []string) string {
 			ttl, err := time.ParseDuration(params[1])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
-			err = session.server.storage.ListCreate(params[0], ttl)
+			err = storage.ListCreate(params[0], ttl)
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -223,11 +223,11 @@ func newListCreateCommand() *command {
 	}
 }
 
-func newListLeftPopCommand() *command {
+func newListLeftPopCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			value, err := session.server.storage.ListLeftPop(params[0])
+		run: func(params []string) string {
+			value, err := storage.ListLeftPop(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -236,11 +236,11 @@ func newListLeftPopCommand() *command {
 	}
 }
 
-func newListRightPopCommand() *command {
+func newListRightPopCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			value, err := session.server.storage.ListRightPop(params[0])
+		run: func(params []string) string {
+			value, err := storage.ListRightPop(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -249,11 +249,11 @@ func newListRightPopCommand() *command {
 	}
 }
 
-func newListLeftPushCommand() *command {
+func newListLeftPushCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
-		run: func(session *session, params []string) string {
-			if err := session.server.storage.ListLeftPush(params[0], params[1]); err != nil {
+		run: func(params []string) string {
+			if err := storage.ListLeftPush(params[0], params[1]); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -261,11 +261,11 @@ func newListLeftPushCommand() *command {
 	}
 }
 
-func newListRightPushCommand() *command {
+func newListRightPushCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
-		run: func(session *session, params []string) string {
-			if err := session.server.storage.ListRightPush(params[0], params[1]); err != nil {
+		run: func(params []string) string {
+			if err := storage.ListRightPush(params[0], params[1]); err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
 			return okResponse
@@ -273,11 +273,11 @@ func newListRightPushCommand() *command {
 	}
 }
 
-func newListLenCommand() *command {
+func newListLenCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^LLEN %s$", keyPattern)),
-		run: func(session *session, params []string) string {
-			len, err := session.server.storage.ListLen(params[0])
+		run: func(params []string) string {
+			len, err := storage.ListLen(params[0])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -286,10 +286,10 @@ func newListLenCommand() *command {
 	}
 }
 
-func newListRangeCommand() *command {
+func newListRangeCommand(storage storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
-		run: func(session *session, params []string) string {
+		run: func(params []string) string {
 			start, err := strconv.Atoi(params[1])
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
@@ -299,7 +299,7 @@ func newListRangeCommand() *command {
 				return fmt.Sprintf(errorResponse, err)
 			}
 
-			values, err := session.server.storage.ListRange(params[0], start, stop)
+			values, err := storage.ListRange(params[0], start, stop)
 			if err != nil {
 				return fmt.Sprintf(errorResponse, err)
 			}
@@ -313,11 +313,11 @@ func newListRangeCommand() *command {
 	}
 }
 
-func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile) *command {
+func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) *command {
 	return &command{
 		allowGuest: true,
 		format:     regexp.MustCompile("^([a-zA-Z0-9]+) (.+)$"),
-		run: func(session *session, params []string) string {
+		run: func(params []string) string {
 			if htpasswdFile.Validate(params[0], params[1]) {
 				session.authorize()
 				return okResponse

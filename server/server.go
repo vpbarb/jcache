@@ -33,42 +33,18 @@ type storage interface {
 }
 
 type server struct {
-	storage       storage
-	commands      map[string]*command
-	isAuthEnabled bool
+	storage      storage
+	htpasswdFile *htpasswd.HtpasswdFile
 }
 
 func New(htpasswdPath string) *server {
 	s := &server{
 		storage: memory.NewStorage(),
-		commands: map[string]*command{
-			"KEYS":    newKeysCommand(),
-			"TTL":     newTTLCommand(),
-			"GET":     newGetCommand(),
-			"SET":     newSetCommand(),
-			"DEL":     newDelCommand(),
-			"UPD":     newUpdCommand(),
-			"HCREATE": newHashCreateCommand(),
-			"HGETALL": newHashGetAllCommand(),
-			"HGET":    newHashGetCommand(),
-			"HSET":    newHashSetCommand(),
-			"HDEL":    newHashDelCommand(),
-			"HLEN":    newHashLenCommand(),
-			"HKEYS":   newHashKeysCommand(),
-			"LCREATE": newListCreateCommand(),
-			"LLPOP":   newListLeftPopCommand(),
-			"LRPOP":   newListRightPopCommand(),
-			"LLPUSH":  newListLeftPushCommand(),
-			"LRPUSH":  newListRightPushCommand(),
-			"LLEN":    newListLenCommand(),
-			"LRANGE":  newListRangeCommand(),
-		},
 	}
 
 	if htpasswdPath != "" {
-		if htpasswdFile, err := htpasswd.NewHtpasswdFromFile(htpasswdPath); err == nil {
-			s.isAuthEnabled = true
-			s.commands["AUTH"] = newAuthCommand(htpasswdFile)
+		var err error
+		if s.htpasswdFile, err = htpasswd.NewHtpasswdFromFile(htpasswdPath); err == nil {
 			log.Print("server supports authentication")
 		} else {
 			log.Printf("erron on loading htpasswd file: %s", err)
@@ -89,14 +65,6 @@ func (s *server) ListenAndServe(addr string) {
 			continue
 		}
 
-		go s.newSession(conn).serve()
-	}
-}
-
-func (s *server) newSession(conn net.Conn) *session {
-	return &session{
-		conn:       conn,
-		server:     s,
-		remoteAddr: conn.RemoteAddr().String(),
+		go newSession(conn, s.storage, s.htpasswdFile).serve()
 	}
 }
