@@ -67,6 +67,17 @@ func setCommand(session *session, params string) string {
 	return okResponse
 }
 
+func updCommand(session *session, params string) string {
+	matches := keyValueRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	if err := session.server.storage.Update(matches[1], matches[2]); err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return okResponse
+}
+
 func delCommand(session *session, params string) string {
 	matches := keyRegexp.FindStringSubmatch(params)
 	if len(matches) == 0 {
@@ -132,4 +143,39 @@ func hashSetCommand(session *session, params string) string {
 		return fmt.Sprintf(errorResponse, err)
 	}
 	return okResponse
+}
+
+func hashDelCommand(session *session, params string) string {
+	matches := keyFieldRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	if err := session.server.storage.HashDelete(matches[1], matches[2]); err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return okResponse
+}
+
+func hashLenCommand(session *session, params string) string {
+	matches := keyRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	len, err := session.server.storage.HashLen(matches[1])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return fmt.Sprintf("%d", len)
+}
+
+func hashKeysCommand(session *session, params string) string {
+	matches := keyRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	keys, err := session.server.storage.HashKeys(matches[1])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return strings.Join(keys, "\n")
 }
