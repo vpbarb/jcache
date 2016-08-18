@@ -29,6 +29,18 @@ func (s *storage) getElement(key string) (*element, error) {
 	return nil, fmt.Errorf(`Key "%s" does not exist`, key)
 }
 
+func (s *storage) getHash(key string) (hash, error) {
+	element, err := s.getElement(key)
+	if err != nil {
+		return nil, err
+	}
+	hash, err := element.castHash()
+	if err != nil {
+		return nil, err
+	}
+	return hash, nil
+}
+
 func (s *storage) createElement(key string, value interface{}, ttl time.Duration) *element {
 	var expireTime time.Time
 	if ttl > 0 {
@@ -85,6 +97,11 @@ func (s *storage) Set(key, value string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	element, _ := s.getElement(key)
+	if element != nil {
+		return fmt.Errorf(`Key "%s" already exists`, key)
+	}
+
 	s.elements[key] = s.createElement(key, value, ttl)
 	return nil
 }
@@ -112,7 +129,7 @@ func (s *storage) HashCreate(key string, ttl time.Duration) error {
 
 	element, _ := s.getElement(key)
 	if element != nil {
-		return fmt.Errorf(`Hash with key "%s" already exists`, key)
+		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
 	s.elements[key] = s.createElement(key, make(hash), ttl)
 	return nil
@@ -122,11 +139,7 @@ func (s *storage) HashGet(key, field string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
-	if err != nil {
-		return "", err
-	}
-	hash, err := element.castHash()
+	hash, err := s.getHash(key)
 	if err != nil {
 		return "", err
 	}
@@ -141,11 +154,7 @@ func (s *storage) HashGetAll(key string) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
-	if err != nil {
-		return nil, err
-	}
-	hash, err := element.castHash()
+	hash, err := s.getHash(key)
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +165,7 @@ func (s *storage) HashSet(key, field, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
-	if err != nil {
-		return err
-	}
-	hash, err := element.castHash()
+	hash, err := s.getHash(key)
 	if err != nil {
 		return err
 	}
@@ -172,11 +177,7 @@ func (s *storage) HashDelete(key, field string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
-	if err != nil {
-		return err
-	}
-	hash, err := element.castHash()
+	hash, err := s.getHash(key)
 	if err != nil {
 		return err
 	}
@@ -192,11 +193,7 @@ func (s *storage) HashLen(key string) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
-	if err != nil {
-		return 0, err
-	}
-	hash, err := element.castHash()
+	hash, err := s.getHash(key)
 	if err != nil {
 		return 0, err
 	}
@@ -208,11 +205,7 @@ func (s *storage) HashKeys(key string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
-	if err != nil {
-		return nil, err
-	}
-	hash, err := element.castHash()
+	hash, err := s.getHash(key)
 	if err != nil {
 		return nil, err
 	}

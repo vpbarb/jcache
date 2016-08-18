@@ -14,6 +14,16 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+func (s *StorageTestSuite) TestExpire(c *C) {
+	storage := NewStorage()
+
+	storage.Set("key", "value", time.Millisecond)
+	time.Sleep(2 * time.Millisecond)
+
+	_, err := storage.Get("key")
+	c.Assert(err, ErrorMatches, `Key "key" does not exist`)
+}
+
 func (s *StorageTestSuite) TestKeys(c *C) {
 	storage := NewStorage()
 
@@ -61,6 +71,10 @@ func (s *StorageTestSuite) TestSetAndGet(c *C) {
 	// Get string like hash and get error
 	_, err4 := storage.HashGet("key", "field")
 	c.Assert(err4, ErrorMatches, "Key type is not hash")
+
+	// Try to set existing key value
+	err5 := storage.Set("key", "value", time.Duration(0))
+	c.Assert(err5, ErrorMatches, `Key "key" already exists`)
 }
 
 func (s *StorageTestSuite) TestDelete(c *C) {
@@ -83,7 +97,24 @@ func (s *StorageTestSuite) TestDelete(c *C) {
 	c.Assert(err4, NotNil)
 }
 
-func (s *StorageTestSuite) TestHashCreateAndSetAndGet(c *C) {
+func (s *StorageTestSuite) TestHashCreate(c *C) {
+	storage := NewStorage()
+
+	// Create hash
+	err1 := storage.HashCreate("key1", time.Duration(0))
+	c.Assert(err1, IsNil)
+
+	// Get hash like string and get error
+	_, err2 := storage.Get("key1")
+	c.Assert(err2, ErrorMatches, "Key type is not string")
+
+	// Create hash with existing key
+	storage.Set("key2", "value2", time.Duration(0))
+	err3 := storage.HashCreate("key2", time.Duration(0))
+	c.Assert(err3, ErrorMatches, `Key "key2" already exists`)
+}
+
+func (s *StorageTestSuite) TestHashSetAndGet(c *C) {
 	storage := NewStorage()
 
 	// Get field from non-existing hash and get error
@@ -109,9 +140,24 @@ func (s *StorageTestSuite) TestHashCreateAndSetAndGet(c *C) {
 	c.Assert(err5, IsNil)
 	c.Assert(value5, Equals, "value")
 
-	// Get hash like string and get error
-	_, err6 := storage.Get("key")
-	c.Assert(err6, ErrorMatches, "Key type is not string")
+	// Set non-existing hash field
+	err6 := storage.HashSet("key2", "field", "value")
+	c.Assert(err6, ErrorMatches, `Key "key2" does not exist`)
+}
+
+func (s *StorageTestSuite) TestHashGetAll(c *C) {
+	storage := NewStorage()
+
+	// Create and fill hash
+	storage.HashCreate("key", time.Duration(0))
+	storage.HashSet("key", "field", "value")
+
+	hash, err1 := storage.HashGetAll("key")
+	c.Assert(err1, IsNil)
+	c.Assert(hash, DeepEquals, map[string]string{"field": "value"})
+
+	_, err2 := storage.HashGetAll("key2")
+	c.Assert(err2, ErrorMatches, `Key "key2" does not exist`)
 }
 
 func (s *StorageTestSuite) TestHashDelete(c *C) {
@@ -136,6 +182,10 @@ func (s *StorageTestSuite) TestHashDelete(c *C) {
 	// Chech field is deleted
 	_, err5 := storage.HashGet("key", "field")
 	c.Assert(err5, ErrorMatches, `Field "field" does not exist`)
+
+	// Delete non-existing hash field
+	err6 := storage.HashDelete("key2", "field")
+	c.Assert(err6, ErrorMatches, `Key "key2" does not exist`)
 }
 
 func (s *StorageTestSuite) TestHashLenAndKeys(c *C) {
@@ -166,5 +216,4 @@ func (s *StorageTestSuite) TestHashLenAndKeys(c *C) {
 	c.Assert(err5, ErrorMatches, `Key type is not hash`)
 	_, err6 := storage.HashKeys("key3")
 	c.Assert(err6, ErrorMatches, `Key type is not hash`)
-
 }
