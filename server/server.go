@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"github.com/Barberrrry/jcache/server/memory"
 	"log"
 	"net"
 	"strings"
@@ -17,7 +18,7 @@ type storage interface {
 	Delete(key string) error
 	HashCreate(key string, ttl time.Duration) error
 	HashGet(key, field string) (string, error)
-	HashGetAll(key string) (Hash, error)
+	HashGetAll(key string) (map[string]string, error)
 	HashSet(key, field, value string) error
 	HashDelete(key, field string) error
 	HashLen(key string) (int, error)
@@ -48,7 +49,7 @@ type session struct {
 
 func New() *server {
 	return &server{
-		storage: NewMemoryStorage(),
+		storage: memory.NewStorage(),
 		commands: map[string]commandFunc{
 			"KEYS":    keysCommand,
 			"TTL":     ttlCommand,

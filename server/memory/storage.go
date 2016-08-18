@@ -1,9 +1,10 @@
-package server
+package memory
 
 import (
 	"fmt"
 	"sync"
 	//"container/list"
+	"sort"
 	"time"
 )
 
@@ -12,20 +13,18 @@ type element struct {
 	expireTime time.Time
 }
 
-type Hash map[string]string
-
-type memoryStorage struct {
+type storage struct {
 	elements map[string]*element
 	m        sync.Mutex
 }
 
-func NewMemoryStorage() *memoryStorage {
-	return &memoryStorage{
+func NewStorage() *storage {
+	return &storage{
 		elements: make(map[string]*element),
 	}
 }
 
-func (s *memoryStorage) getElement(key string) (*element, error) {
+func (s *storage) getElement(key string) (*element, error) {
 	if element, found := s.elements[key]; found {
 		if element.expireTime.IsZero() || element.expireTime.After(time.Now()) {
 			return element, nil
@@ -35,7 +34,7 @@ func (s *memoryStorage) getElement(key string) (*element, error) {
 	return nil, fmt.Errorf(`Key "%s" does not exist`, key)
 }
 
-func (s *memoryStorage) createElement(key string, value interface{}, ttl time.Duration) *element {
+func (s *storage) createElement(key string, value interface{}, ttl time.Duration) *element {
 	var expireTime time.Time
 	if ttl > 0 {
 		expireTime = time.Now().Add(ttl)
@@ -46,15 +45,16 @@ func (s *memoryStorage) createElement(key string, value interface{}, ttl time.Du
 	}
 }
 
-func (s *memoryStorage) Keys() []string {
+func (s *storage) Keys() []string {
 	keys := make([]string, 0, len(s.elements))
 	for key := range s.elements {
 		keys = append(keys, key)
 	}
+	sort.Strings(keys)
 	return keys
 }
 
-func (s *memoryStorage) TTL(key string) (time.Duration, error) {
+func (s *storage) TTL(key string) (time.Duration, error) {
 	element, err := s.getElement(key)
 	if err != nil {
 		return time.Duration(0), err
@@ -65,7 +65,7 @@ func (s *memoryStorage) TTL(key string) (time.Duration, error) {
 	return element.expireTime.Sub(time.Now()), nil
 }
 
-func (s *memoryStorage) Get(key string) (string, error) {
+func (s *storage) Get(key string) (string, error) {
 	element, err := s.getElement(key)
 	if err != nil {
 		return "", err
@@ -77,16 +77,16 @@ func (s *memoryStorage) Get(key string) (string, error) {
 	}
 }
 
-func (s *memoryStorage) Set(key, value string, ttl time.Duration) error {
+func (s *storage) Set(key, value string, ttl time.Duration) error {
 	s.elements[key] = s.createElement(key, value, ttl)
 	return nil
 }
 
-func (s *memoryStorage) Update(key, value string) error {
+func (s *storage) Update(key, value string) error {
 	return nil
 }
 
-func (s *memoryStorage) Delete(key string) error {
+func (s *storage) Delete(key string) error {
 	_, err := s.getElement(key)
 	if err != nil {
 		return err
@@ -95,21 +95,21 @@ func (s *memoryStorage) Delete(key string) error {
 	return nil
 }
 
-func (s *memoryStorage) HashCreate(key string, ttl time.Duration) error {
+func (s *storage) HashCreate(key string, ttl time.Duration) error {
 	element, _ := s.getElement(key)
 	if element != nil {
 		return fmt.Errorf(`Hash with key "%s" already exists`, key)
 	}
-	s.elements[key] = s.createElement(key, Hash{}, ttl)
+	s.elements[key] = s.createElement(key, make(map[string]string), ttl)
 	return nil
 }
 
-func (s *memoryStorage) HashGet(key, field string) (string, error) {
+func (s *storage) HashGet(key, field string) (string, error) {
 	element, err := s.getElement(key)
 	if err != nil {
 		return "", err
 	}
-	if hash, ok := element.value.(Hash); ok {
+	if hash, ok := element.value.(map[string]string); ok {
 		if value, found := hash[field]; found {
 			return value, nil
 		} else {
@@ -120,24 +120,24 @@ func (s *memoryStorage) HashGet(key, field string) (string, error) {
 	}
 }
 
-func (s *memoryStorage) HashGetAll(key string) (Hash, error) {
+func (s *storage) HashGetAll(key string) (map[string]string, error) {
 	element, err := s.getElement(key)
 	if err != nil {
-		return Hash{}, err
+		return nil, err
 	}
-	if hash, ok := element.value.(Hash); ok {
+	if hash, ok := element.value.(map[string]string); ok {
 		return hash, nil
 	} else {
-		return Hash{}, fmt.Errorf(`Key "%s" is not hash`, key)
+		return nil, fmt.Errorf(`Key "%s" is not hash`, key)
 	}
 }
 
-func (s *memoryStorage) HashSet(key, field, value string) error {
+func (s *storage) HashSet(key, field, value string) error {
 	element, err := s.getElement(key)
 	if err != nil {
 		return err
 	}
-	if hash, ok := element.value.(Hash); ok {
+	if hash, ok := element.value.(map[string]string); ok {
 		hash[field] = value
 		return nil
 	} else {
@@ -145,50 +145,50 @@ func (s *memoryStorage) HashSet(key, field, value string) error {
 	}
 }
 
-func (s *memoryStorage) HashDelete(key, field string) error {
+func (s *storage) HashDelete(key, field string) error {
 	return nil
 }
 
-func (s *memoryStorage) HashLen(key string) (int, error) {
+func (s *storage) HashLen(key string) (int, error) {
 	return 0, nil
 }
 
-func (s *memoryStorage) HashKeys(key string) ([]string, error) {
+func (s *storage) HashKeys(key string) ([]string, error) {
 	return []string{}, nil
 }
 
-func (s *memoryStorage) ListLeftPop(key string) (string, error) {
+func (s *storage) ListLeftPop(key string) (string, error) {
 	return "", nil
 }
 
-func (s *memoryStorage) ListRightPop(key string) (string, error) {
+func (s *storage) ListRightPop(key string) (string, error) {
 	return "", nil
 }
 
-func (s *memoryStorage) ListLeftPush(key, value string, ttl time.Duration) error {
+func (s *storage) ListLeftPush(key, value string, ttl time.Duration) error {
 	return nil
 }
 
-func (s *memoryStorage) ListRightPush(key, value string, ttl time.Duration) error {
+func (s *storage) ListRightPush(key, value string, ttl time.Duration) error {
 	return nil
 }
 
-func (s *memoryStorage) ListSet(key string, index int, value string, ttl time.Duration) error {
+func (s *storage) ListSet(key string, index int, value string, ttl time.Duration) error {
 	return nil
 }
 
-func (s *memoryStorage) ListIndex(key string, index int) (string, error) {
+func (s *storage) ListIndex(key string, index int) (string, error) {
 	return "", nil
 }
 
-func (s *memoryStorage) ListLen(key string) (int, error) {
+func (s *storage) ListLen(key string) (int, error) {
 	return 0, nil
 }
 
-func (s *memoryStorage) ListDelete(key string, count int, value string) error {
+func (s *storage) ListDelete(key string, count int, value string) error {
 	return nil
 }
 
-func (s *memoryStorage) ListRange(key string, start, stop int) ([]string, error) {
+func (s *storage) ListRange(key string, start, stop int) ([]string, error) {
 	return []string{}, nil
 }
