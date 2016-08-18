@@ -1,12 +1,12 @@
 package server
 
 import (
-	"bufio"
-	"github.com/Barberrrry/jcache/server/memory"
 	"log"
 	"net"
-	"strings"
 	"time"
+
+	"github.com/Barberrrry/jcache/server/htpasswd"
+	"github.com/Barberrrry/jcache/server/memory"
 )
 
 type storage interface {
@@ -33,45 +33,53 @@ type storage interface {
 }
 
 type server struct {
-	storage  storage
-	commands map[string]*command
+	storage       storage
+	commands      map[string]*command
+	isAuthEnabled bool
 }
 
-type session struct {
-	conn         net.Conn
-	server       *server
-	isAuthorized bool
-}
-
-func New() *server {
-	return &server{
+func New(htpasswdPath string) *server {
+	s := &server{
 		storage: memory.NewStorage(),
 		commands: map[string]*command{
-			"KEYS":    keysCommand,
-			"TTL":     ttlCommand,
-			"GET":     getCommand,
-			"SET":     setCommand,
-			"DEL":     delCommand,
-			"UPD":     updCommand,
-			"HCREATE": hashCreateCommand,
-			"HGETALL": hashGetAllCommand,
-			"HGET":    hashGetCommand,
-			"HSET":    hashSetCommand,
-			"HDEL":    hashDelCommand,
-			"HLEN":    hashLenCommand,
-			"HKEYS":   hashKeysCommand,
-			"LCREATE": listCreateCommand,
-			"LLPOP":   listLeftPopCommand,
-			"LRPOP":   listRightPopCommand,
-			"LLPUSH":  listLeftPushCommand,
-			"LRPUSH":  listRightPushCommand,
-			"LLEN":    listLenCommand,
-			"LRANGE":  listRangeCommand,
+			"KEYS":    newKeysCommand(),
+			"TTL":     newTTLCommand(),
+			"GET":     newGetCommand(),
+			"SET":     newSetCommand(),
+			"DEL":     newDelCommand(),
+			"UPD":     newUpdCommand(),
+			"HCREATE": newHashCreateCommand(),
+			"HGETALL": newHashGetAllCommand(),
+			"HGET":    newHashGetCommand(),
+			"HSET":    newHashSetCommand(),
+			"HDEL":    newHashDelCommand(),
+			"HLEN":    newHashLenCommand(),
+			"HKEYS":   newHashKeysCommand(),
+			"LCREATE": newListCreateCommand(),
+			"LLPOP":   newListLeftPopCommand(),
+			"LRPOP":   newListRightPopCommand(),
+			"LLPUSH":  newListLeftPushCommand(),
+			"LRPUSH":  newListRightPushCommand(),
+			"LLEN":    newListLenCommand(),
+			"LRANGE":  newListRangeCommand(),
 		},
 	}
+
+	if htpasswdPath != "" {
+		if htpasswdFile, err := htpasswd.NewHtpasswdFromFile(htpasswdPath); err == nil {
+			s.isAuthEnabled = true
+			s.commands["AUTH"] = newAuthCommand(htpasswdFile)
+			log.Print("server supports authentication")
+		} else {
+			log.Printf("erron on loading htpasswd file: %s", err)
+		}
+	}
+
+	return s
 }
 
 func (s *server) ListenAndServe(addr string) {
+	log.Printf("listen on %s", addr)
 	listener, _ := net.Listen("tcp", addr)
 
 	for {
@@ -87,57 +95,8 @@ func (s *server) ListenAndServe(addr string) {
 
 func (s *server) newSession(conn net.Conn) *session {
 	return &session{
-		conn:   conn,
-		server: s,
+		conn:       conn,
+		server:     s,
+		remoteAddr: conn.RemoteAddr().String(),
 	}
-}
-
-func (s *session) serve() {
-	log.Print("start session")
-	for {
-		if err := s.handleCommand(); err != nil {
-			break
-		}
-	}
-	log.Print("close session")
-}
-
-func (s *session) handleCommand() error {
-	buf := bufio.NewReader(s.conn)
-	line, _, err := buf.ReadLine()
-
-	if err != nil {
-		return err
-	}
-
-	if len(line) > 0 {
-		parts := strings.SplitN(string(line), " ", 2)
-
-		var response string
-		if command, found := s.server.commands[parts[0]]; found {
-			var arguments string
-			if len(parts) > 1 {
-				arguments = parts[1]
-			}
-			matches := command.format.FindStringSubmatch(arguments)
-			if len(matches) > 0 {
-				var params []string
-				if len(matches) > 1 {
-					params = matches[1:]
-				}
-				response = command.run(s, params)
-			} else {
-				response = invalidFormatResponse
-			}
-		} else {
-			response = unknownCommandResponse
-		}
-
-		if len(response) > 0 {
-			s.conn.Write([]byte(response))
-			s.conn.Write([]byte("\n"))
-		}
-	}
-
-	return nil
 }

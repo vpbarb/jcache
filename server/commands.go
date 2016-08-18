@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Barberrrry/jcache/server/htpasswd"
 )
 
 const (
@@ -18,6 +20,7 @@ const (
 	okResponse             = "OK"
 	unknownCommandResponse = "UNKNOWN COMMAND"
 	invalidFormatResponse  = "INVALID COMMAND FORMAT"
+	needAuthResponse       = "NEED AUTHENTICATION"
 	errorResponse          = "ERROR: %s"
 	valueResponse          = `"%s"`
 	hashElementResponse    = `%s: "%s"`
@@ -29,16 +32,18 @@ type command struct {
 	allowGuest bool
 }
 
-var (
-	keysCommand = &command{
+func newKeysCommand() *command {
+	return &command{
 		format: regexp.MustCompile("^$"),
 		run: func(session *session, params []string) string {
 			keys := session.server.storage.Keys()
 			return strings.Join(keys, "\n")
 		},
 	}
+}
 
-	ttlCommand = &command{
+func newTTLCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			ttl, err := session.server.storage.TTL(params[0])
@@ -48,8 +53,10 @@ var (
 			return ttl.String()
 		},
 	}
+}
 
-	getCommand = &command{
+func newGetCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			value, err := session.server.storage.Get(params[0])
@@ -59,8 +66,10 @@ var (
 			return fmt.Sprintf(valueResponse, value)
 		},
 	}
+}
 
-	setCommand = &command{
+func newSetCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, valuePattern, ttlPattern)),
 		run: func(session *session, params []string) string {
 			ttl, err := time.ParseDuration(params[2])
@@ -73,8 +82,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	updCommand = &command{
+func newUpdCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
 		run: func(session *session, params []string) string {
 			if err := session.server.storage.Update(params[0], params[1]); err != nil {
@@ -83,8 +94,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	delCommand = &command{
+func newDelCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			if err := session.server.storage.Delete(params[0]); err != nil {
@@ -93,8 +106,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	hashCreateCommand = &command{
+func newHashCreateCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
 		run: func(session *session, params []string) string {
 			ttl, err := time.ParseDuration(params[1])
@@ -108,8 +123,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	hashGetAllCommand = &command{
+func newHashGetAllCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			hash, err := session.server.storage.HashGetAll(params[0])
@@ -124,8 +141,10 @@ var (
 			return strings.Join(response, "\n")
 		},
 	}
+}
 
-	hashGetCommand = &command{
+func newHashGetCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
 		run: func(session *session, params []string) string {
 			value, err := session.server.storage.HashGet(params[0], params[1])
@@ -135,8 +154,10 @@ var (
 			return fmt.Sprintf(valueResponse, value)
 		},
 	}
+}
 
-	hashSetCommand = &command{
+func newHashSetCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, fieldPattern, valuePattern)),
 		run: func(session *session, params []string) string {
 			if err := session.server.storage.HashSet(params[0], params[1], params[2]); err != nil {
@@ -145,8 +166,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	hashDelCommand = &command{
+func newHashDelCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
 		run: func(session *session, params []string) string {
 			if err := session.server.storage.HashDelete(params[0], params[1]); err != nil {
@@ -155,8 +178,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	hashLenCommand = &command{
+func newHashLenCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			len, err := session.server.storage.HashLen(params[0])
@@ -166,8 +191,10 @@ var (
 			return fmt.Sprintf("%d", len)
 		},
 	}
+}
 
-	hashKeysCommand = &command{
+func newHashKeysCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			keys, err := session.server.storage.HashKeys(params[0])
@@ -177,8 +204,10 @@ var (
 			return strings.Join(keys, "\n")
 		},
 	}
+}
 
-	listCreateCommand = &command{
+func newListCreateCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
 		run: func(session *session, params []string) string {
 			ttl, err := time.ParseDuration(params[1])
@@ -192,8 +221,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	listLeftPopCommand = &command{
+func newListLeftPopCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			value, err := session.server.storage.ListLeftPop(params[0])
@@ -203,8 +234,10 @@ var (
 			return fmt.Sprintf(valueResponse, value)
 		},
 	}
+}
 
-	listRightPopCommand = &command{
+func newListRightPopCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			value, err := session.server.storage.ListRightPop(params[0])
@@ -214,8 +247,10 @@ var (
 			return fmt.Sprintf(valueResponse, value)
 		},
 	}
+}
 
-	listLeftPushCommand = &command{
+func newListLeftPushCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
 		run: func(session *session, params []string) string {
 			if err := session.server.storage.ListLeftPush(params[0], params[1]); err != nil {
@@ -224,8 +259,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	listRightPushCommand = &command{
+func newListRightPushCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
 		run: func(session *session, params []string) string {
 			if err := session.server.storage.ListRightPush(params[0], params[1]); err != nil {
@@ -234,8 +271,10 @@ var (
 			return okResponse
 		},
 	}
+}
 
-	listLenCommand = &command{
+func newListLenCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^LLEN %s$", keyPattern)),
 		run: func(session *session, params []string) string {
 			len, err := session.server.storage.ListLen(params[0])
@@ -245,8 +284,10 @@ var (
 			return fmt.Sprintf("%d", len)
 		},
 	}
+}
 
-	listRangeCommand = &command{
+func newListRangeCommand() *command {
+	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
 		run: func(session *session, params []string) string {
 			start, err := strconv.Atoi(params[1])
@@ -270,4 +311,18 @@ var (
 			return strings.Join(response, "\n")
 		},
 	}
-)
+}
+
+func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile) *command {
+	return &command{
+		allowGuest: true,
+		format:     regexp.MustCompile("^([a-zA-Z0-9]+) (.+)$"),
+		run: func(session *session, params []string) string {
+			if htpasswdFile.Validate(params[0], params[1]) {
+				session.authorize()
+				return okResponse
+			}
+			return "INVALID AUTH"
+		},
+	}
+}
