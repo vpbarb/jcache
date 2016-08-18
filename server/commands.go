@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -10,17 +11,18 @@ import (
 var (
 	okResponse             = "OK"
 	unknownCommandResponse = "UNKNOWN COMMAND"
-	invalidFormatResponse  = "INVALID FORMAT"
+	invalidFormatResponse  = "INVALID COMMAND FORMAT"
 	errorResponse          = "ERROR: %s"
 	valueResponse          = `"%s"`
 	hashElementResponse    = `%s: "%s"`
 
-	keyRegexp           = regexp.MustCompile(`(?i)^([a-z0-9_]+)$`)
-	keyValueRegexp      = regexp.MustCompile(`(?i)^([a-z0-9_]+) "(.*)"$`)
-	keyValueTTLRegexp   = regexp.MustCompile(`(?i)^([a-z0-9_]+) "(.*)" ([a-z0-9-.]+)$`)
-	keyTTLRegexp        = regexp.MustCompile(`(?i)^([a-z0-9_]+) ([a-z0-9-.]+)$`)
-	keyFieldRegexp      = regexp.MustCompile(`(?i)^([a-z0-9_]+) ([a-z0-9_]+)$`)
-	keyFieldValueRegexp = regexp.MustCompile(`(?i)^([a-z0-9_]+) ([a-z0-9_]+) "(.*)"$`)
+	keyRegexp           = regexp.MustCompile(`^([a-zA-Z0-9_]+)$`)
+	keyValueRegexp      = regexp.MustCompile(`^([a-zA-Z0-9_]+) "(.*)"$`)
+	keyValueTTLRegexp   = regexp.MustCompile(`^([a-zA-Z0-9_]+) "(.*)" ([a-zA-Z0-9-.]+)$`)
+	keyTTLRegexp        = regexp.MustCompile(`^([a-zA-Z0-9_]+) ([a-zA-Z0-9-.]+)$`)
+	keyFieldRegexp      = regexp.MustCompile(`^([a-zA-Z0-9_]+) ([a-zA-Z0-9_]+)$`)
+	keyFieldValueRegexp = regexp.MustCompile(`^([a-zA-Z0-9_]+) ([a-zA-Z0-9_]+) "(.*)"$`)
+	keyRangeRegexp      = regexp.MustCompile(`^([a-zA-Z0-9_]+) ([0-9]+) ([0-9]+)$`)
 )
 
 func keysCommand(session *session, params string) string {
@@ -178,4 +180,105 @@ func hashKeysCommand(session *session, params string) string {
 		return fmt.Sprintf(errorResponse, err)
 	}
 	return strings.Join(keys, "\n")
+}
+
+func listCreateCommand(session *session, params string) string {
+	matches := keyTTLRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	ttl, err := time.ParseDuration(matches[2])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	err = session.server.storage.ListCreate(matches[1], ttl)
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return okResponse
+}
+
+func listLeftPopCommand(session *session, params string) string {
+	matches := keyRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	value, err := session.server.storage.ListLeftPop(matches[1])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return fmt.Sprintf(valueResponse, value)
+}
+
+func listRightPopCommand(session *session, params string) string {
+	matches := keyRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	value, err := session.server.storage.ListRightPop(matches[1])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return fmt.Sprintf(valueResponse, value)
+}
+
+func listLeftPushCommand(session *session, params string) string {
+	matches := keyValueRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	if err := session.server.storage.ListLeftPush(matches[1], matches[2]); err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return okResponse
+}
+
+func listRightPushCommand(session *session, params string) string {
+	matches := keyValueRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	if err := session.server.storage.ListRightPush(matches[1], matches[2]); err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return okResponse
+}
+
+func listLenCommand(session *session, params string) string {
+	matches := keyRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+	len, err := session.server.storage.ListLen(matches[1])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	return fmt.Sprintf("%d", len)
+}
+
+func listRangeCommand(session *session, params string) string {
+	matches := keyRangeRegexp.FindStringSubmatch(params)
+	if len(matches) == 0 {
+		return invalidFormatResponse
+	}
+
+	start, err := strconv.Atoi(matches[2])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	stop, err := strconv.Atoi(matches[3])
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+
+	values, err := session.server.storage.ListRange(matches[1], start, stop)
+	if err != nil {
+		return fmt.Sprintf(errorResponse, err)
+	}
+	var response []string
+	for _, value := range values {
+		response = append(response, fmt.Sprintf(valueResponse, value))
+	}
+
+	return strings.Join(response, "\n")
 }
