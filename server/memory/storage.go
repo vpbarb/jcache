@@ -1,10 +1,10 @@
 package memory
 
 import (
+	"container/list"
 	"fmt"
-	"sync"
-	//"container/list"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -39,6 +39,18 @@ func (s *storage) getHash(key string) (hash, error) {
 		return nil, err
 	}
 	return hash, nil
+}
+
+func (s *storage) getList(key string) (*list.List, error) {
+	element, err := s.getElement(key)
+	if err != nil {
+		return nil, err
+	}
+	list, err := element.castList()
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func (s *storage) createElement(key string, value interface{}, ttl time.Duration) *element {
@@ -106,8 +118,16 @@ func (s *storage) Set(key, value string, ttl time.Duration) error {
 	return nil
 }
 
-// todo
 func (s *storage) Update(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	element, err := s.getElement(key)
+	if err != nil {
+		return err
+	}
+
+	element.value = value
 	return nil
 }
 
@@ -218,47 +238,84 @@ func (s *storage) HashKeys(key string) ([]string, error) {
 	return keys, nil
 }
 
-// todo
+func (s *storage) ListCreate(key string, ttl time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	element, _ := s.getElement(key)
+	if element != nil {
+		return fmt.Errorf(`Key "%s" already exists`, key)
+	}
+	s.elements[key] = s.createElement(key, list.New(), ttl)
+	return nil
+}
+
 func (s *storage) ListLeftPop(key string) (string, error) {
-	return "", nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	list, err := s.getList(key)
+	if err != nil {
+		return "", err
+	}
+
+	if e := list.Front(); e != nil {
+		list.Remove(e)
+		return e.Value.(string), nil
+	}
+	return "", fmt.Errorf(`List "%s" is empty`, key)
 }
 
-// todo
 func (s *storage) ListRightPop(key string) (string, error) {
-	return "", nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	list, err := s.getList(key)
+	if err != nil {
+		return "", err
+	}
+
+	if e := list.Back(); e != nil {
+		list.Remove(e)
+		return e.Value.(string), nil
+	}
+	return "", fmt.Errorf(`List "%s" is empty`, key)
 }
 
-// todo
-func (s *storage) ListLeftPush(key, value string, ttl time.Duration) error {
+func (s *storage) ListLeftPush(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	list, err := s.getList(key)
+	if err != nil {
+		return err
+	}
+
+	list.PushFront(value)
 	return nil
 }
 
-// todo
-func (s *storage) ListRightPush(key, value string, ttl time.Duration) error {
+func (s *storage) ListRightPush(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	list, err := s.getList(key)
+	if err != nil {
+		return err
+	}
+
+	list.PushBack(value)
 	return nil
 }
 
-// todo
-func (s *storage) ListSet(key string, index int, value string, ttl time.Duration) error {
-	return nil
-}
-
-// todo
-func (s *storage) ListIndex(key string, index int) (string, error) {
-	return "", nil
-}
-
-// todo
 func (s *storage) ListLen(key string) (int, error) {
-	return 0, nil
-}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-// todo
-func (s *storage) ListDelete(key string, count int, value string) error {
-	return nil
-}
+	list, err := s.getList(key)
+	if err != nil {
+		return 0, err
+	}
 
-// todo
-func (s *storage) ListRange(key string, start, stop int) ([]string, error) {
-	return []string{}, nil
+	return list.Len(), nil
 }

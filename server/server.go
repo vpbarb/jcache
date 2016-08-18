@@ -23,15 +23,12 @@ type storage interface {
 	HashDelete(key, field string) error
 	HashLen(key string) (int, error)
 	HashKeys(key string) ([]string, error)
+	ListCreate(key string, ttl time.Duration) error
 	ListLeftPop(key string) (string, error)
 	ListRightPop(key string) (string, error)
-	ListLeftPush(key, value string, ttl time.Duration) error
-	ListRightPush(key, value string, ttl time.Duration) error
-	ListSet(key string, index int, value string, ttl time.Duration) error
-	ListIndex(key string, index int) (string, error)
+	ListLeftPush(key, value string) error
+	ListRightPush(key, value string) error
 	ListLen(key string) (int, error)
-	ListDelete(key string, count int, value string) error
-	ListRange(key string, start, stop int) ([]string, error)
 }
 
 type commandFunc func(session *session, params string) string
