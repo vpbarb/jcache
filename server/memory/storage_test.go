@@ -57,6 +57,10 @@ func (s *StorageTestSuite) TestSetAndGet(c *C) {
 	value3, err3 := storage.Get("key")
 	c.Assert(err3, IsNil)
 	c.Assert(value3, Equals, "value")
+
+	// Get string like hash and get error
+	_, err4 := storage.HashGet("key", "field")
+	c.Assert(err4, ErrorMatches, "Key type is not hash")
 }
 
 func (s *StorageTestSuite) TestDelete(c *C) {
@@ -104,4 +108,63 @@ func (s *StorageTestSuite) TestHashCreateAndSetAndGet(c *C) {
 	value5, err5 := storage.HashGet("key", "field")
 	c.Assert(err5, IsNil)
 	c.Assert(value5, Equals, "value")
+
+	// Get hash like string and get error
+	_, err6 := storage.Get("key")
+	c.Assert(err6, ErrorMatches, "Key type is not string")
+}
+
+func (s *StorageTestSuite) TestHashDelete(c *C) {
+	storage := NewStorage()
+
+	// Create hash
+	err1 := storage.HashCreate("key", time.Duration(0))
+	c.Assert(err1, IsNil)
+
+	// Delete non-existing field and get error
+	err2 := storage.HashDelete("key", "field")
+	c.Assert(err2, ErrorMatches, `Field "field" does not exist`)
+
+	// Set hash field
+	err3 := storage.HashSet("key", "field", "value")
+	c.Assert(err3, IsNil)
+
+	// Delete existing field
+	err4 := storage.HashDelete("key", "field")
+	c.Assert(err4, IsNil)
+
+	// Chech field is deleted
+	_, err5 := storage.HashGet("key", "field")
+	c.Assert(err5, ErrorMatches, `Field "field" does not exist`)
+}
+
+func (s *StorageTestSuite) TestHashLenAndKeys(c *C) {
+	storage := NewStorage()
+
+	// Create and fill hash
+	storage.HashCreate("key", time.Duration(0))
+	storage.HashSet("key", "field1", "value1")
+	storage.HashSet("key", "field2", "value2")
+
+	len, err1 := storage.HashLen("key")
+	c.Assert(err1, IsNil)
+	c.Assert(len, Equals, 2)
+
+	keys, err2 := storage.HashKeys("key")
+	c.Assert(err2, IsNil)
+	c.Assert(keys, DeepEquals, []string{"field1", "field2"})
+
+	// Get length and keys of non-existing hash
+	_, err3 := storage.HashLen("key2")
+	c.Assert(err3, ErrorMatches, `Key "key2" does not exist`)
+	_, err4 := storage.HashKeys("key2")
+	c.Assert(err4, ErrorMatches, `Key "key2" does not exist`)
+
+	// Get length and keys of non-hash value
+	storage.Set("key3", "value3", time.Duration(0))
+	_, err5 := storage.HashLen("key3")
+	c.Assert(err5, ErrorMatches, `Key type is not hash`)
+	_, err6 := storage.HashKeys("key3")
+	c.Assert(err6, ErrorMatches, `Key type is not hash`)
+
 }
