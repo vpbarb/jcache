@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -75,20 +76,21 @@ func (s *session) handleInput() error {
 	}
 
 	if len(line) > 0 {
-		if response := s.handleCommand(string(line)); len(response) > 0 {
-			s.rw.Write(response)
-			s.rw.Write([]byte("\r\n"))
+		response := s.handleCommand(string(line))
+		s.rw.Write([]byte(fmt.Sprintf("$%d"+sep, len(response))))
+		for _, l := range response {
+			s.rw.Write([]byte(l))
 		}
 	}
 
 	return nil
 }
 
-func (s *session) handleCommand(line string) []byte {
+func (s *session) handleCommand(line string) []string {
 	parts := strings.SplitN(line, " ", 2)
 	if command, found := s.commands[parts[0]]; found {
 		if s.isAuthRequired && !command.allowGuest && !s.isAuthorized {
-			return needAuthResponse
+			return errorResponse(errors.New("NEED AUTHENTICATION"))
 		}
 
 		var arguments string
@@ -104,9 +106,9 @@ func (s *session) handleCommand(line string) []byte {
 			s.log(fmt.Sprintf("run %s", parts[0]))
 			return command.run(params)
 		}
-		return invalidFormatResponse
+		return errorResponse(errors.New("INVALID COMMAND FORMAT"))
 	}
-	return unknownCommandResponse
+	return errorResponse(errors.New("UNKNOWN COMMAND"))
 }
 
 func (s *session) authorize() {
