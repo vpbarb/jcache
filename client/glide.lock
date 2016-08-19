@@ -1,0 +1,6 @@
+hash: 734d5374f30e0ec9dbef213cb9f41c7fc0ec8686730a0d0f7e00592c509f4f3b
+updated: 2016-08-19T13:28:12.677000321+03:00
+imports:
+- name: gopkg.in/fatih/pool.v2
+  version: 20a0a429c5f93de45c90f5f09ea297c25e0929b3
+devImports: []

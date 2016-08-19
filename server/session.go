@@ -50,8 +50,8 @@ func newSession(id string, rw io.ReadWriter, storage storage, htpasswdFile *htpa
 
 	if htpasswdFile != nil {
 		s.isAuthRequired = true
-		s.commands["AUTH"] = newAuthCommand(htpasswdFile, s)
 	}
+	s.commands["AUTH"] = newAuthCommand(htpasswdFile, s)
 
 	return s
 }
@@ -76,15 +76,15 @@ func (s *session) handleInput() error {
 
 	if len(line) > 0 {
 		if response := s.handleCommand(string(line)); len(response) > 0 {
-			s.rw.Write([]byte(response))
-			s.rw.Write([]byte("\n"))
+			s.rw.Write(response)
+			s.rw.Write([]byte("\r\n"))
 		}
 	}
 
 	return nil
 }
 
-func (s *session) handleCommand(line string) string {
+func (s *session) handleCommand(line string) []byte {
 	parts := strings.SplitN(line, " ", 2)
 	if command, found := s.commands[parts[0]]; found {
 		if s.isAuthRequired && !command.allowGuest && !s.isAuthorized {
