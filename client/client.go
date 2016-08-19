@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"regexp"
 	"strconv"
@@ -72,9 +73,9 @@ func (c *Client) Get(key string) (string, error) {
 	return parseValue(response[0]), nil
 }
 
-func call(conn net.Conn, command string) ([]string, error) {
-	w := bufio.NewWriter(conn)
-	r := bufio.NewReader(conn)
+func call(rw io.ReadWriter, command string) ([]string, error) {
+	w := bufio.NewWriter(rw)
+	r := bufio.NewReader(rw)
 	w.WriteString(command + "\r\n")
 	if err := w.Flush(); err != nil {
 		return nil, fmt.Errorf("Cannot write to connection: %s", err)
