@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	errorPrefix = "ERROR: "
+	errorPrefix = "-"
 	countPrefix = "$"
-	okResponse  = "OK"
+	okResponse  = "+"
 )
 
 var (

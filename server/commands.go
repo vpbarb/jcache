@@ -18,7 +18,7 @@ const (
 	ttlPattern   = `([a-zA-Z0-9-.]+)`
 	intPattern   = `([0-9]+)`
 
-	errorTemplate       = "ERROR: %s" + sep
+	errorTemplate       = "-%s" + sep
 	keyTemplate         = "%s" + sep
 	valueTemplate       = `"%s"` + sep
 	hashElementTemplate = `%s:"%s"` + sep
@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	okResponse = []string{"OK" + sep}
+	okResponse = []string{"+" + sep}
 )
 
 type command struct {
