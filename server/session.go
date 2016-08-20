@@ -61,7 +61,7 @@ func newSession(id string, rw io.ReadWriter, storage storage, htpasswdFile *htpa
 	return s
 }
 
-func (s *session) serve() {
+func (s *session) start() {
 	s.log("start session")
 	for {
 		if err := s.handleInput(); err != nil {
@@ -81,7 +81,6 @@ func (s *session) handleInput() error {
 
 	if len(line) > 0 {
 		response := s.handleCommand(string(line))
-		//s.rw.Write([]byte(fmt.Sprintf("$%d"+lineSeparator, len(response))))
 		for _, l := range response {
 			s.rw.Write([]byte(l + lineSeparator))
 		}
