@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/Barberrrry/jcache/server/htpasswd"
-	"github.com/Barberrrry/jcache/server/memory"
 )
 
-type storage interface {
+type Storage interface {
 	Keys() []string
 	TTL(key string) (time.Duration, error)
 	Get(key string) (string, error)
@@ -33,14 +32,12 @@ type storage interface {
 }
 
 type server struct {
-	storage      storage
+	storage      Storage
 	htpasswdFile *htpasswd.HtpasswdFile
 }
 
-func New(htpasswdPath string) *server {
-	s := &server{
-		storage: memory.NewStorage(),
-	}
+func New(storage Storage, htpasswdPath string) *server {
+	s := &server{storage: storage}
 
 	if htpasswdPath != "" {
 		var err error

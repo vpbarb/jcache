@@ -9,29 +9,29 @@ import (
 )
 
 type storage struct {
-	elements map[string]*element
-	mu       sync.Mutex
+	items map[string]*item
+	mu    sync.Mutex
 }
 
 // NewStorage creates new memory storage
 func NewStorage() *storage {
 	return &storage{
-		elements: make(map[string]*element),
+		items: make(map[string]*item),
 	}
 }
 
-func (s *storage) getElement(key string) (*element, error) {
-	if element, found := s.elements[key]; found {
+func (s *storage) getItem(key string) (*item, error) {
+	if element, found := s.items[key]; found {
 		if element.expireTime.IsZero() || element.expireTime.After(time.Now()) {
 			return element, nil
 		}
-		delete(s.elements, key)
+		delete(s.items, key)
 	}
 	return nil, fmt.Errorf(`Key "%s" does not exist`, key)
 }
 
 func (s *storage) getHash(key string) (hash, error) {
-	element, err := s.getElement(key)
+	element, err := s.getItem(key)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *storage) getHash(key string) (hash, error) {
 }
 
 func (s *storage) getList(key string) (*list.List, error) {
-	element, err := s.getElement(key)
+	element, err := s.getItem(key)
 	if err != nil {
 		return nil, err
 	}
@@ -54,12 +54,12 @@ func (s *storage) getList(key string) (*list.List, error) {
 	return list, nil
 }
 
-func (s *storage) createElement(key string, value interface{}, ttl time.Duration) *element {
+func (s *storage) createElement(key string, value interface{}, ttl time.Duration) *item {
 	var expireTime time.Time
 	if ttl > 0 {
 		expireTime = time.Now().Add(ttl)
 	}
-	return &element{
+	return &item{
 		value:      value,
 		expireTime: expireTime,
 	}
@@ -70,8 +70,8 @@ func (s *storage) Keys() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	keys := make([]string, 0, len(s.elements))
-	for key := range s.elements {
+	keys := make([]string, 0, len(s.items))
+	for key := range s.items {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -83,7 +83,7 @@ func (s *storage) TTL(key string) (time.Duration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
+	element, err := s.getItem(key)
 	if err != nil {
 		return time.Duration(0), err
 	}
@@ -98,7 +98,7 @@ func (s *storage) Get(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
+	element, err := s.getItem(key)
 	if err != nil {
 		return "", err
 	}
@@ -115,12 +115,12 @@ func (s *storage) Set(key, value string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, _ := s.getElement(key)
+	element, _ := s.getItem(key)
 	if element != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
 
-	s.elements[key] = s.createElement(key, value, ttl)
+	s.items[key] = s.createElement(key, value, ttl)
 	return nil
 }
 
@@ -129,7 +129,7 @@ func (s *storage) Update(key, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getElement(key)
+	element, err := s.getItem(key)
 	if err != nil {
 		return err
 	}
@@ -143,11 +143,11 @@ func (s *storage) Delete(key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.getElement(key)
+	_, err := s.getItem(key)
 	if err != nil {
 		return err
 	}
-	delete(s.elements, key)
+	delete(s.items, key)
 	return nil
 }
 
@@ -156,11 +156,11 @@ func (s *storage) HashCreate(key string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, _ := s.getElement(key)
+	element, _ := s.getItem(key)
 	if element != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
-	s.elements[key] = s.createElement(key, make(hash), ttl)
+	s.items[key] = s.createElement(key, make(hash), ttl)
 	return nil
 }
 
@@ -259,11 +259,11 @@ func (s *storage) ListCreate(key string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, _ := s.getElement(key)
+	element, _ := s.getItem(key)
 	if element != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
-	s.elements[key] = s.createElement(key, list.New(), ttl)
+	s.items[key] = s.createElement(key, list.New(), ttl)
 	return nil
 }
 
