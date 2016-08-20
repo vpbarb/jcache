@@ -17,6 +17,10 @@ var (
 	notSupportedError = errors.New("Operation is not supported by BoltDB storage")
 )
 
+// Storage uses BoltDB as a persistent file-based storage.
+// encoding/gob is used to encode/decode data structures to put them into BoltDB.
+// Unfortunately container/list couldn't be used in a such way, so this storage doesn't support lists :(
+// It may be implemented by custom list solution or by using some different encoder/decoder.
 type storage struct {
 	db *bolt.DB
 }
