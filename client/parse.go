@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"regexp"
+	"time"
 )
 
 var (
@@ -22,4 +23,12 @@ func parseHashField(str string) (string, string, error) {
 		return matches[1], matches[2], nil
 	}
 	return "", "", fmt.Errorf("Invalid hash field format: %s", str)
+}
+
+func parseTTL(str string) (time.Duration, error) {
+	d, err := time.ParseDuration(str)
+	if err != nil {
+		return time.Duration(0), err
+	}
+	return d, nil
 }

@@ -11,7 +11,6 @@ import (
 const (
 	okPrefix    = "+"
 	errorPrefix = "-"
-	countPrefix = "$"
 )
 
 func call(w io.Writer, r io.Reader, command string) ([]string, error) {
