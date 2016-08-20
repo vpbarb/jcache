@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"errors"
-	"testing"
 
 	. "gopkg.in/check.v1"
 )
@@ -14,10 +13,6 @@ var _ = Suite(&CallTestSuite{})
 
 type errorWriter struct {
 	err error
-}
-
-func Test(t *testing.T) {
-	TestingT(t)
 }
 
 func (w *errorWriter) Write(p []byte) (n int, err error) {
@@ -50,18 +45,18 @@ func (s *CallTestSuite) TestReadError(c *C) {
 	c.Assert(response, IsNil)
 }
 
-func (s *CallTestSuite) TestInvalidRowsCount(c *C) {
-	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("$a\r\n")
-
-	response, err := call(w, r, "TEST")
-	c.Assert(err, ErrorMatches, "Invalid response rows count")
-	c.Assert(response, IsNil)
-}
+//func (s *CallTestSuite) TestInvalidRowsCount(c *C) {
+//	w := &bytes.Buffer{}
+//	r := bytes.NewBufferString("$a\r\n")
+//
+//	response, err := call(w, r, "TEST")
+//	c.Assert(err, ErrorMatches, "Invalid response rows count")
+//	c.Assert(response, IsNil)
+//}
 
 func (s *CallTestSuite) TestFirstEmptyLine(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("\r\n$1\r\n+\r\n")
+	r := bytes.NewBufferString("\r\n+\r\n")
 
 	response, err := call(w, r, "TEST")
 	c.Assert(err, IsNil)
@@ -70,7 +65,7 @@ func (s *CallTestSuite) TestFirstEmptyLine(c *C) {
 
 func (s *CallTestSuite) TestResponseOk(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("$1\r\n+\r\n")
+	r := bytes.NewBufferString("+\r\n")
 
 	response, err := call(w, r, "TEST")
 	c.Assert(err, IsNil)
@@ -79,7 +74,7 @@ func (s *CallTestSuite) TestResponseOk(c *C) {
 
 func (s *CallTestSuite) TestResponseError(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("$1\r\n-MESSAGE\r\n")
+	r := bytes.NewBufferString("-MESSAGE\r\n")
 
 	response, err := call(w, r, "TEST")
 	c.Assert(err, ErrorMatches, "MESSAGE")
@@ -88,7 +83,7 @@ func (s *CallTestSuite) TestResponseError(c *C) {
 
 func (s *CallTestSuite) TestResponseSingleLine(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("$1\r\n\"value\"\r\n")
+	r := bytes.NewBufferString("\"value\"\r\n+\r\n")
 
 	response, err := call(w, r, "TEST")
 	c.Assert(err, IsNil)
@@ -97,7 +92,7 @@ func (s *CallTestSuite) TestResponseSingleLine(c *C) {
 
 func (s *CallTestSuite) TestResponseMultiLine(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("$3\r\nkey1\r\nkey2\r\nkey3\r\n")
+	r := bytes.NewBufferString("key1\r\nkey2\r\nkey3\r\n+\r\n")
 
 	response, err := call(w, r, "TEST")
 	c.Assert(err, IsNil)

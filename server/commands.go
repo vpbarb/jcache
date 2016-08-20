@@ -22,10 +22,11 @@ const (
 	valueTemplate       = `"%s"`
 	hashElementTemplate = `%s:"%s"`
 	lenTemplate         = "%d"
+	okTemplate          = "+"
 )
 
 var (
-	okResponse = []string{"+"}
+	okResponse = []string{okTemplate}
 )
 
 type command struct {
@@ -39,11 +40,11 @@ func errorResponse(err error) []string {
 }
 
 func valueResponse(value string) []string {
-	return []string{fmt.Sprintf(valueTemplate, value)}
+	return []string{fmt.Sprintf(valueTemplate, value), okTemplate}
 }
 
 func lenResponse(len int) []string {
-	return []string{fmt.Sprintf(lenTemplate, len)}
+	return []string{fmt.Sprintf(lenTemplate, len), okTemplate}
 }
 
 func newKeysCommand(storage storage) *command {
@@ -55,6 +56,7 @@ func newKeysCommand(storage storage) *command {
 			for _, key := range keys {
 				response = append(response, fmt.Sprintf(keyTemplate, key))
 			}
+			response = append(response, okTemplate)
 			return response
 		},
 	}
@@ -68,7 +70,7 @@ func newTTLCommand(storage storage) *command {
 			if err != nil {
 				return errorResponse(err)
 			}
-			return []string{ttl.String()}
+			return []string{ttl.String(), okTemplate}
 		},
 	}
 }
@@ -155,6 +157,7 @@ func newHashGetAllCommand(storage storage) *command {
 			for key, value := range hash {
 				response = append(response, fmt.Sprintf(hashElementTemplate, key, value))
 			}
+			response = append(response, okTemplate)
 			return response
 		},
 	}
@@ -222,6 +225,7 @@ func newHashKeysCommand(storage storage) *command {
 			for _, key := range keys {
 				response = append(response, fmt.Sprintf(keyTemplate, key))
 			}
+			response = append(response, okTemplate)
 			return response
 		},
 	}
@@ -326,8 +330,9 @@ func newListRangeCommand(storage storage) *command {
 			}
 			var response []string
 			for _, value := range values {
-				response = append(response, valueResponse(value)...)
+				response = append(response, fmt.Sprintf(valueTemplate, value))
 			}
+			response = append(response, okTemplate)
 			return response
 		},
 	}

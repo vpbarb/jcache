@@ -81,7 +81,7 @@ func (s *session) handleInput() error {
 
 	if len(line) > 0 {
 		response := s.handleCommand(string(line))
-		s.rw.Write([]byte(fmt.Sprintf("$%d"+lineSeparator, len(response))))
+		//s.rw.Write([]byte(fmt.Sprintf("$%d"+lineSeparator, len(response))))
 		for _, l := range response {
 			s.rw.Write([]byte(l + lineSeparator))
 		}

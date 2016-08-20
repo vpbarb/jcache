@@ -3,22 +3,18 @@ package client
 import (
 	"fmt"
 	"net"
-	"regexp"
 	"time"
 
 	"gopkg.in/fatih/pool.v2"
 )
 
-var (
-	valueRegexp     = regexp.MustCompile(`^"(.*)"$`)
-	hashFieldRegexp = regexp.MustCompile(`^([a-zA-Z0-9_]+):"(.*)"$`)
-)
-
+// Client is a client for jcache server
 type Client struct {
 	connPool pool.Pool
 }
 
-func NewClient(addr, user, password string, timeout time.Duration, maxConnections int) (*Client, error) {
+// New creates new client instance
+func New(addr, user, password string, timeout time.Duration, maxConnections int) (*Client, error) {
 	factory := func() (net.Conn, error) {
 		conn, err := net.DialTimeout("tcp", addr, timeout)
 		if err != nil {
@@ -41,6 +37,23 @@ func NewClient(addr, user, password string, timeout time.Duration, maxConnection
 	}
 }
 
+// Keys returns all keys
+func (c *Client) Keys() ([]string, error) {
+	conn, err := c.connPool.Get()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	response, err := callConn(conn, "KEYS")
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+// Get returns value by key
 func (c *Client) Get(key string) (string, error) {
 	conn, err := c.connPool.Get()
 	if err != nil {
@@ -53,23 +66,9 @@ func (c *Client) Get(key string) (string, error) {
 		return "", err
 	}
 
-	return parseValue(response[0]), nil
+	return parseValue(response[0])
 }
 
 func callConn(conn net.Conn, format string, params ...interface{}) ([]string, error) {
 	return call(conn, conn, fmt.Sprintf(format, params...))
-}
-
-func parseValue(str string) string {
-	if matches := valueRegexp.FindStringSubmatch(str); len(matches) > 1 {
-		return matches[1]
-	}
-	return ""
-}
-
-func parseHashField(str string) (string, string) {
-	if matches := hashFieldRegexp.FindStringSubmatch(str); len(matches) > 2 {
-		return matches[1], matches[2]
-	}
-	return "", ""
 }

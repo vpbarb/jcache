@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 )
 
@@ -24,37 +23,22 @@ func call(w io.Writer, r io.Reader, command string) ([]string, error) {
 	}
 
 	var response []string
-	var i, count int
 	for {
 		line, _, err := rb.ReadLine()
 		if err != nil {
 			return nil, fmt.Errorf("Cannot read from connection: %s", err)
 		}
 		str := string(line)
-		if strings.HasPrefix(str, countPrefix) {
-			count, err = strconv.Atoi(strings.TrimPrefix(str, countPrefix))
-			if err != nil {
-				return nil, errors.New("Invalid response rows count")
-			}
+		switch {
+		case str == "":
+			// Ignore empty line and read next one
 			continue
-		}
-		if count == 0 {
-			// Count can't be zero, look for count in the next line
-			continue
-		}
-
-		switch string(str[0]) {
-		case okPrefix:
-			return nil, nil
-		case errorPrefix:
+		case strings.HasPrefix(str, okPrefix):
+			return response, nil
+		case strings.HasPrefix(str, errorPrefix):
 			return nil, errors.New(strings.TrimPrefix(str, errorPrefix))
 		default:
 			response = append(response, str)
-		}
-
-		i++
-		if i >= count {
-			break
 		}
 	}
 
