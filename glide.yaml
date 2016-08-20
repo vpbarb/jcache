@@ -1,4 +1,3 @@
-package: jcache
+package: github.com/Barberrrry/jcache
 import:
 - package: gopkg.in/check.v1
-  version: 64131543e7896d5bcc6bd5a76287eb75ea96c673

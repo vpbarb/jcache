@@ -1,3 +1,4 @@
 package: github.com/Barberrrry/jcache/client
 import:
 - package: gopkg.in/fatih/pool.v2
+- package: gopkg.in/check.v1
