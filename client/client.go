@@ -29,7 +29,7 @@ func New(addr, user, password string, timeout time.Duration, maxConnections int)
 			return nil, fmt.Errorf("Cannot connect: %s", err)
 		}
 
-		_, err = call(conn, conn, fmt.Sprintf("AUTH %s %s", user, password))
+		_, err = transfer(conn, conn, fmt.Sprintf("AUTH %s %s", user, password))
 		if err != nil {
 			conn.Close()
 			return nil, fmt.Errorf("Cannot authentiticate: %s", err)
@@ -164,7 +164,7 @@ func (c *Client) call(responseFormatter responseFormatFunc, command string, para
 	}
 	defer conn.Close()
 
-	response, err := call(conn, conn, fmt.Sprintf(command, params...))
+	response, err := transfer(conn, conn, fmt.Sprintf(command, params...))
 	if err != nil {
 		return err
 	}

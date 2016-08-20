@@ -13,7 +13,7 @@ const (
 	errorPrefix = "-"
 )
 
-func call(w io.Writer, r io.Reader, command string) ([]string, error) {
+func transfer(w io.Writer, r io.Reader, command string) ([]string, error) {
 	wb := bufio.NewWriter(w)
 	rb := bufio.NewReader(r)
 	wb.WriteString(command + "\r\n")
