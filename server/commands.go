@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -10,23 +11,21 @@ import (
 )
 
 const (
-	sep = "\r\n"
-
 	keyPattern   = `([a-zA-Z0-9_]+)`
 	valuePattern = `"(.*)"`
 	fieldPattern = `([a-zA-Z0-9_]+)`
 	ttlPattern   = `([a-zA-Z0-9-.]+)`
 	intPattern   = `([0-9]+)`
 
-	errorTemplate       = "-%s" + sep
-	keyTemplate         = "%s" + sep
-	valueTemplate       = `"%s"` + sep
-	hashElementTemplate = `%s:"%s"` + sep
-	lenTemplate         = "%d" + sep
+	errorTemplate       = "-%s"
+	keyTemplate         = "%s"
+	valueTemplate       = `"%s"`
+	hashElementTemplate = `%s:"%s"`
+	lenTemplate         = "%d"
 )
 
 var (
-	okResponse = []string{"+" + sep}
+	okResponse = []string{"+"}
 )
 
 type command struct {
@@ -343,7 +342,7 @@ func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) *comm
 				session.authorize()
 				return okResponse
 			}
-			return []string{"INVALID AUTH" + sep}
+			return errorResponse(errors.New("INVALID CREDENTIALS"))
 		},
 	}
 }

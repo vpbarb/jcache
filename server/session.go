@@ -11,6 +11,10 @@ import (
 	"github.com/Barberrrry/jcache/server/htpasswd"
 )
 
+const (
+	lineSeparator = "\r\n"
+)
+
 type session struct {
 	id             string
 	rw             io.ReadWriter
@@ -77,9 +81,9 @@ func (s *session) handleInput() error {
 
 	if len(line) > 0 {
 		response := s.handleCommand(string(line))
-		s.rw.Write([]byte(fmt.Sprintf("$%d"+sep, len(response))))
+		s.rw.Write([]byte(fmt.Sprintf("$%d"+lineSeparator, len(response))))
 		for _, l := range response {
-			s.rw.Write([]byte(l))
+			s.rw.Write([]byte(l + lineSeparator))
 		}
 	}
 

@@ -15,9 +15,9 @@ import (
 )
 
 const (
+	okPrefix    = "+"
 	errorPrefix = "-"
 	countPrefix = "$"
-	okResponse  = "+"
 )
 
 var (
@@ -26,7 +26,7 @@ var (
 )
 
 type Client struct {
-	pool pool.Pool
+	connPool pool.Pool
 }
 
 func NewClient(addr, user, password string, timeout time.Duration, maxConnections int) (*Client, error) {
@@ -36,30 +36,24 @@ func NewClient(addr, user, password string, timeout time.Duration, maxConnection
 			return nil, fmt.Errorf("Cannot connect: %s", err)
 		}
 
-		response, err := call(conn, fmt.Sprintf("AUTH %s %s", user, password))
+		_, err = call(conn, fmt.Sprintf("AUTH %s %s", user, password))
 		if err != nil {
-			return nil, err
+			conn.Close()
+			return nil, fmt.Errorf("Cannot authentiticate: %s", err)
 		}
 
-		switch response[0] {
-		case okResponse:
-			return conn, nil
-		case "INVALID AUTH":
-			return nil, fmt.Errorf("Invalid authentitication")
-		default:
-			return nil, fmt.Errorf("Invalid response")
-		}
+		return conn, nil
 	}
 
-	if pool, err := pool.NewChannelPool(0, maxConnections, factory); err == nil {
-		return &Client{pool: pool}, nil
+	if connPool, err := pool.NewChannelPool(0, maxConnections, factory); err == nil {
+		return &Client{connPool: connPool}, nil
 	} else {
 		return nil, fmt.Errorf("Cannot create connection pool: %s", err)
 	}
 }
 
 func (c *Client) Get(key string) (string, error) {
-	conn, err := c.pool.Get()
+	conn, err := c.connPool.Get()
 	if err != nil {
 		return "", err
 	}
@@ -101,13 +95,16 @@ func call(rw io.ReadWriter, command string) ([]string, error) {
 			continue
 		}
 
-		if strings.HasPrefix(str, errorPrefix) {
+		switch string(str[0]) {
+		case okPrefix:
+			return nil, nil
+		case errorPrefix:
 			return nil, errors.New(strings.TrimPrefix(str, errorPrefix))
+		default:
+			response = append(response, str)
 		}
 
-		response = append(response, str)
 		i++
-
 		if i >= count {
 			break
 		}
