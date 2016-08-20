@@ -7,6 +7,7 @@ import (
 const (
 	StorageMemory      = "memory"
 	StorageMultiMemory = "multi_memory"
+	StorageBoltDB      = "boltdb"
 )
 
 type StorageType string
@@ -20,6 +21,8 @@ func (s *StorageType) Set(value string) error {
 	case StorageMemory:
 		*s = StorageType(value)
 	case StorageMultiMemory:
+		*s = StorageType(value)
+	case StorageBoltDB:
 		*s = StorageType(value)
 	default:
 		return fmt.Errorf("Unknown storage type: %s", value)

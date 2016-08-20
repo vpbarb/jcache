@@ -1,12 +1,12 @@
-package memory
+package storage
 
 import (
 	"fmt"
 )
 
-type hash map[string]string
+type Hash map[string]string
 
-func (h hash) getValue(field string) (string, error) {
+func (h Hash) GetValue(field string) (string, error) {
 	if value, found := h[field]; found {
 		return value, nil
 	} else {

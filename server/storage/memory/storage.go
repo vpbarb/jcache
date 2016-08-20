@@ -6,36 +6,38 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	commonStorage "github.com/Barberrrry/jcache/server/storage"
 )
 
 type storage struct {
-	items map[string]*item
+	items map[string]*commonStorage.Item
 	mu    sync.Mutex
 }
 
 // NewStorage creates new memory storage
 func NewStorage() *storage {
 	return &storage{
-		items: make(map[string]*item),
+		items: make(map[string]*commonStorage.Item),
 	}
 }
 
-func (s *storage) getItem(key string) (*item, error) {
-	if element, found := s.items[key]; found {
-		if element.expireTime.IsZero() || element.expireTime.After(time.Now()) {
-			return element, nil
+func (s *storage) getItem(key string) (*commonStorage.Item, error) {
+	if item, found := s.items[key]; found {
+		if item.IsAlive() {
+			return item, nil
 		}
 		delete(s.items, key)
 	}
 	return nil, fmt.Errorf(`Key "%s" does not exist`, key)
 }
 
-func (s *storage) getHash(key string) (hash, error) {
-	element, err := s.getItem(key)
+func (s *storage) getHash(key string) (commonStorage.Hash, error) {
+	item, err := s.getItem(key)
 	if err != nil {
 		return nil, err
 	}
-	hash, err := element.castHash()
+	hash, err := item.CastHash()
 	if err != nil {
 		return nil, err
 	}
@@ -43,26 +45,15 @@ func (s *storage) getHash(key string) (hash, error) {
 }
 
 func (s *storage) getList(key string) (*list.List, error) {
-	element, err := s.getItem(key)
+	item, err := s.getItem(key)
 	if err != nil {
 		return nil, err
 	}
-	list, err := element.castList()
+	list, err := item.CastList()
 	if err != nil {
 		return nil, err
 	}
 	return list, nil
-}
-
-func (s *storage) createElement(key string, value interface{}, ttl time.Duration) *item {
-	var expireTime time.Time
-	if ttl > 0 {
-		expireTime = time.Now().Add(ttl)
-	}
-	return &item{
-		value:      value,
-		expireTime: expireTime,
-	}
 }
 
 // Keys returns list of all keys
@@ -71,8 +62,10 @@ func (s *storage) Keys() []string {
 	defer s.mu.Unlock()
 
 	keys := make([]string, 0, len(s.items))
-	for key := range s.items {
-		keys = append(keys, key)
+	for key, item := range s.items {
+		if item.IsAlive() {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 	return keys
@@ -83,14 +76,14 @@ func (s *storage) TTL(key string) (time.Duration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getItem(key)
+	item, err := s.getItem(key)
 	if err != nil {
 		return time.Duration(0), err
 	}
-	if element.expireTime.IsZero() {
+	if item.ExpireTime.IsZero() {
 		return time.Duration(0), nil
 	}
-	return element.expireTime.Sub(time.Now()), nil
+	return item.ExpireTime.Sub(time.Now()), nil
 }
 
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
@@ -98,15 +91,11 @@ func (s *storage) Get(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getItem(key)
+	item, err := s.getItem(key)
 	if err != nil {
 		return "", err
 	}
-	value, err := element.castString()
-	if err != nil {
-		return "", err
-	}
-	return value, nil
+	return item.CastString()
 }
 
 // Set value of specified key with ttl. Use zero duration if key should exist forever.
@@ -115,12 +104,12 @@ func (s *storage) Set(key, value string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, _ := s.getItem(key)
-	if element != nil {
+	item, _ := s.getItem(key)
+	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
 
-	s.items[key] = s.createElement(key, value, ttl)
+	s.items[key] = commonStorage.NewItem(key, value, ttl)
 	return nil
 }
 
@@ -129,12 +118,12 @@ func (s *storage) Update(key, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, err := s.getItem(key)
+	item, err := s.getItem(key)
 	if err != nil {
 		return err
 	}
 
-	element.value = value
+	item.Value = value
 	return nil
 }
 
@@ -156,11 +145,11 @@ func (s *storage) HashCreate(key string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, _ := s.getItem(key)
-	if element != nil {
+	item, _ := s.getItem(key)
+	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
-	s.items[key] = s.createElement(key, make(hash), ttl)
+	s.items[key] = commonStorage.NewItem(key, make(commonStorage.Hash), ttl)
 	return nil
 }
 
@@ -174,11 +163,7 @@ func (s *storage) HashGet(key, field string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	value, err := hash.getValue(field)
-	if err != nil {
-		return "", err
-	}
-	return value, nil
+	return hash.GetValue(field)
 }
 
 // HashGetAll returns all hash values of specified key. Error will occur if key doesn't exist or key type is not hash.
@@ -186,11 +171,7 @@ func (s *storage) HashGetAll(key string) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	hash, err := s.getHash(key)
-	if err != nil {
-		return nil, err
-	}
-	return hash, nil
+	return s.getHash(key)
 }
 
 // HashSet sets field value of specified key. Error will occur if key doesn't exist or key type is not hash.
@@ -215,7 +196,7 @@ func (s *storage) HashDelete(key, field string) error {
 	if err != nil {
 		return err
 	}
-	_, err = hash.getValue(field)
+	_, err = hash.GetValue(field)
 	if err != nil {
 		return err
 	}
@@ -259,11 +240,11 @@ func (s *storage) ListCreate(key string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	element, _ := s.getItem(key)
-	if element != nil {
+	item, _ := s.getItem(key)
+	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
-	s.items[key] = s.createElement(key, list.New(), ttl)
+	s.items[key] = commonStorage.NewItem(key, list.New(), ttl)
 	return nil
 }
 
