@@ -5,8 +5,10 @@ import (
 	"log"
 
 	"github.com/Barberrrry/jcache/server"
+	"github.com/Barberrrry/jcache/server/storage"
 	"github.com/Barberrrry/jcache/server/storage/boltdb"
 	"github.com/Barberrrry/jcache/server/storage/memory"
+	"github.com/Barberrrry/jcache/server/storage/multi"
 )
 
 func main() {
@@ -19,7 +21,7 @@ func main() {
 	storageBoltDbPath := flag.String("storage_boltdb_path", "", "Path to BoltDB file")
 	flag.Parse()
 
-	var storage server.Storage
+	var storage storage.Storage
 
 	log.Printf(`storage type is "%s"`, storageType)
 
@@ -27,7 +29,12 @@ func main() {
 	case server.StorageMemory:
 		storage = memory.NewStorage()
 	case server.StorageMultiMemory:
-		storage = memory.NewMultiStorage(*storageMultiMemoryCount)
+		ms := multi.NewStorage()
+		for i := uint(0); i < *storageMultiMemoryCount; i++ {
+			ms.AddStorage(memory.NewStorage())
+		}
+		storage = ms
+
 	case server.StorageBoltDB:
 		var err error
 		storage, err = boltdb.NewStorage(*storageBoltDbPath)

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Barberrrry/jcache/server/htpasswd"
+	"github.com/Barberrrry/jcache/server/storage"
 )
 
 const (
@@ -23,7 +24,7 @@ type session struct {
 	isAuthorized   bool
 }
 
-func newSession(id string, rw io.ReadWriter, storage Storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
+func newSession(id string, rw io.ReadWriter, storage storage.Storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
 	commands := map[string]*command{
 		"KEYS":    newKeysCommand(storage),
 		"TTL":     newTTLCommand(storage),

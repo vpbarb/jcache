@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Barberrrry/jcache/server/htpasswd"
+	"github.com/Barberrrry/jcache/server/storage"
 )
 
 const (
@@ -47,7 +48,7 @@ func lenResponse(len int) []string {
 	return []string{fmt.Sprintf(lenTemplate, len), okTemplate}
 }
 
-func newKeysCommand(storage Storage) *command {
+func newKeysCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile("^$"),
 		run: func(params []string) []string {
@@ -62,7 +63,7 @@ func newKeysCommand(storage Storage) *command {
 	}
 }
 
-func newTTLCommand(storage Storage) *command {
+func newTTLCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -75,7 +76,7 @@ func newTTLCommand(storage Storage) *command {
 	}
 }
 
-func newGetCommand(storage Storage) *command {
+func newGetCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -88,7 +89,7 @@ func newGetCommand(storage Storage) *command {
 	}
 }
 
-func newSetCommand(storage Storage) *command {
+func newSetCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, valuePattern, ttlPattern)),
 		run: func(params []string) []string {
@@ -104,7 +105,7 @@ func newSetCommand(storage Storage) *command {
 	}
 }
 
-func newUpdCommand(storage Storage) *command {
+func newUpdCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
 		run: func(params []string) []string {
@@ -116,7 +117,7 @@ func newUpdCommand(storage Storage) *command {
 	}
 }
 
-func newDelCommand(storage Storage) *command {
+func newDelCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -128,7 +129,7 @@ func newDelCommand(storage Storage) *command {
 	}
 }
 
-func newHashCreateCommand(storage Storage) *command {
+func newHashCreateCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
 		run: func(params []string) []string {
@@ -145,7 +146,7 @@ func newHashCreateCommand(storage Storage) *command {
 	}
 }
 
-func newHashGetAllCommand(storage Storage) *command {
+func newHashGetAllCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -163,7 +164,7 @@ func newHashGetAllCommand(storage Storage) *command {
 	}
 }
 
-func newHashGetCommand(storage Storage) *command {
+func newHashGetCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
 		run: func(params []string) []string {
@@ -176,7 +177,7 @@ func newHashGetCommand(storage Storage) *command {
 	}
 }
 
-func newHashSetCommand(storage Storage) *command {
+func newHashSetCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, fieldPattern, valuePattern)),
 		run: func(params []string) []string {
@@ -188,7 +189,7 @@ func newHashSetCommand(storage Storage) *command {
 	}
 }
 
-func newHashDelCommand(storage Storage) *command {
+func newHashDelCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
 		run: func(params []string) []string {
@@ -200,7 +201,7 @@ func newHashDelCommand(storage Storage) *command {
 	}
 }
 
-func newHashLenCommand(storage Storage) *command {
+func newHashLenCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -213,7 +214,7 @@ func newHashLenCommand(storage Storage) *command {
 	}
 }
 
-func newHashKeysCommand(storage Storage) *command {
+func newHashKeysCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -231,7 +232,7 @@ func newHashKeysCommand(storage Storage) *command {
 	}
 }
 
-func newListCreateCommand(storage Storage) *command {
+func newListCreateCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
 		run: func(params []string) []string {
@@ -248,7 +249,7 @@ func newListCreateCommand(storage Storage) *command {
 	}
 }
 
-func newListLeftPopCommand(storage Storage) *command {
+func newListLeftPopCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -261,7 +262,7 @@ func newListLeftPopCommand(storage Storage) *command {
 	}
 }
 
-func newListRightPopCommand(storage Storage) *command {
+func newListRightPopCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -274,7 +275,7 @@ func newListRightPopCommand(storage Storage) *command {
 	}
 }
 
-func newListLeftPushCommand(storage Storage) *command {
+func newListLeftPushCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
 		run: func(params []string) []string {
@@ -286,7 +287,7 @@ func newListLeftPushCommand(storage Storage) *command {
 	}
 }
 
-func newListRightPushCommand(storage Storage) *command {
+func newListRightPushCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
 		run: func(params []string) []string {
@@ -298,7 +299,7 @@ func newListRightPushCommand(storage Storage) *command {
 	}
 }
 
-func newListLenCommand(storage Storage) *command {
+func newListLenCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
 		run: func(params []string) []string {
@@ -311,7 +312,7 @@ func newListLenCommand(storage Storage) *command {
 	}
 }
 
-func newListRangeCommand(storage Storage) *command {
+func newListRangeCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
 		run: func(params []string) []string {
