@@ -15,19 +15,53 @@ const (
 var (
 	invalidCommandFormatError = fmt.Errorf("Invalid command format")
 
-	keyRegexp              = regexp.MustCompile(keyTemplate)
-	ttlRegexp              = regexp.MustCompile(intTemplate)
-	lenRegexp              = regexp.MustCompile(intTemplate)
-	keyRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s)$", keyTemplate))
-	setRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s) (%s) (%s)$", keyTemplate, intTemplate, intTemplate))
+	keyRegexp               = regexp.MustCompile(keyTemplate)
+	ttlRegexp               = regexp.MustCompile(intTemplate)
+	lenRegexp               = regexp.MustCompile(intTemplate)
+	keyRequestHeaderRegexp  = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s)$", keyTemplate))
+	authRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s) (%s)$", keyTemplate, keyTemplate))
+	setRequestHeaderRegexp  = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s) (%s) (%s)$", keyTemplate, intTemplate, intTemplate))
 )
 
 type request struct {
 	command string
 }
 
-func (r request) Command() string {
-	return r.command
+func newRequest(command string) request {
+	return request{command: command}
+}
+
+type authRequest struct {
+	request
+	User     string
+	Password string
+}
+
+func (r *authRequest) validate() error {
+	if !keyRegexp.MatchString(r.User) {
+		return fmt.Errorf("User is not valid")
+	}
+	if !keyRegexp.MatchString(r.Password) {
+		return fmt.Errorf("Password is not valid")
+	}
+	return nil
+}
+
+func (r *authRequest) Decode(header []byte, data io.Reader) error {
+	matches := authRequestHeaderRegexp.FindStringSubmatch(string(header))
+	if len(matches) < 3 {
+		return invalidCommandFormatError
+	}
+	r.User = matches[1]
+	r.Password = matches[2]
+	return nil
+}
+
+func (r *authRequest) Encode() ([]byte, error) {
+	if err := r.validate(); err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf("%s %s %s\r\n", r.command, r.User, r.Password)), nil
 }
 
 type keyRequest struct {
@@ -59,7 +93,7 @@ func (r *keyRequest) Encode() ([]byte, error) {
 }
 
 func newKeyRequest(command, key string) *keyRequest {
-	return &keyRequest{request{command: command}, key}
+	return &keyRequest{request: newRequest(command), Key: key}
 }
 
 type setRequest struct {

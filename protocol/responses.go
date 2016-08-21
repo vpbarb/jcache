@@ -17,11 +17,7 @@ var (
 )
 
 type response struct {
-	err error
-}
-
-func (s response) Error() error {
-	return s.err
+	Error error
 }
 
 func (r response) Encode() ([]byte, error) {
@@ -29,8 +25,8 @@ func (r response) Encode() ([]byte, error) {
 }
 
 func (r response) encodeResponse(response []byte) ([]byte, error) {
-	if r.err != nil {
-		return []byte(fmt.Sprintf("ERROR %s\r\n", r.err)), nil
+	if r.Error != nil {
+		return []byte(fmt.Sprintf("ERROR %s\r\n", r.Error)), nil
 	}
 	return response, nil
 }
@@ -46,7 +42,7 @@ func (r response) Decode(header []byte, data io.Reader) error {
 	str := string(header)
 	switch {
 	case strings.HasPrefix(str, "ERROR"):
-		r.err = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, "ERROR "))
+		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, "ERROR "))
 		return nil
 	case str == "OK":
 		return nil
@@ -68,7 +64,7 @@ func (r *valueResponse) Decode(header []byte, data io.Reader) error {
 	str := string(header)
 	switch {
 	case strings.HasPrefix(str, "ERROR"):
-		r.err = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, "ERROR "))
+		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, "ERROR "))
 		return nil
 	case str == "DATA":
 		buf := bufio.NewReader(data)

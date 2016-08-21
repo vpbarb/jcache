@@ -449,7 +449,31 @@ func newListRangeCommand(storage storage.Storage) *command {
 func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) *command {
 	return &command{
 		allowGuest: true,
-		format:     regexp.MustCompile("^([a-zA-Z0-9]+) (.+)$"),
+		process: func(header []byte, data io.Reader) []byte {
+			request := protocol.NewAuthRequest("", "")
+			err := request.Decode(header, data)
+			if err != nil {
+				return []byte(fmt.Sprintf(errorTemplate, err))
+			}
+
+			var authErr error
+
+			if htpasswdFile == nil || htpasswdFile.Validate(request.User, request.Password) {
+				session.authorize()
+			} else {
+				authErr = fmt.Errorf("Invalid credentials")
+			}
+
+			response := protocol.NewEmptyResponse(authErr)
+			result, err := response.Encode()
+			if err != nil {
+				return []byte(fmt.Sprintf(errorTemplate, err))
+			}
+
+			return result
+		},
+
+		format: regexp.MustCompile("^([a-zA-Z0-9]+) (.+)$"),
 		run: func(params []string, data io.Reader) []string {
 			if htpasswdFile == nil || htpasswdFile.Validate(params[0], params[1]) {
 				session.authorize()

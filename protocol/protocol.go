@@ -4,16 +4,20 @@ import (
 	"io"
 )
 
-type Request interface {
+type Encoder interface {
 	Encode() ([]byte, error)
-	Decode([]byte, io.Reader) error
-	Command() string
 }
 
-type Response interface {
-	Encode() ([]byte, error)
+type Decoder interface {
 	Decode([]byte, io.Reader) error
-	Error() error
+}
+
+func NewAuthRequest(user, password string) *authRequest {
+	return &authRequest{
+		request:  newRequest("AUTH"),
+		User:     user,
+		Password: password,
+	}
 }
 
 func NewGetRequest(key string) *keyRequest {
@@ -33,9 +37,9 @@ func NewDelRequest(key string) *keyRequest {
 }
 
 func NewEmptyResponse(err error) *response {
-	return &response{err: err}
+	return &response{Error: err}
 }
 
 func NewValueResponse(value string, err error) *valueResponse {
-	return &valueResponse{response: response{err: err}, Value: value}
+	return &valueResponse{response: response{Error: err}, Value: value}
 }
