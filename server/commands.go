@@ -8,7 +8,6 @@ import (
 
 	"github.com/Barberrrry/jcache/server/htpasswd"
 	"github.com/Barberrrry/jcache/server/storage"
-	"github.com/mkabischev/lodge/ioutil"
 )
 
 const (
@@ -68,8 +67,9 @@ func parseValue(lengthParam string, data io.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	value, err := ioutil.Read(data, length)
-	if err != nil {
+	value := make([]byte, length, length)
+	n, err := data.Read(value)
+	if err != nil || n != length {
 		return "", err
 	}
 	return string(value), nil
