@@ -99,7 +99,7 @@ func (r *setRequest) Encode() ([]byte, error) {
 	if err := r.validate(); err != nil {
 		return nil, err
 	}
-	return []byte(fmt.Sprintf("%s %s %d %d\r\n", r.command, r.Key, r.TTL, len(r.Value))), nil
+	return []byte(fmt.Sprintf("%s %s %d %d\r\n%s\r\n", r.command, r.Key, r.TTL, len(r.Value), r.Value)), nil
 }
 
 func parseValue(lengthParam string, data io.Reader) (string, error) {

@@ -1,10 +1,12 @@
 package client
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"time"
 
+	"github.com/Barberrrry/jcache/protocol"
 	"gopkg.in/fatih/pool.v2"
 )
 
@@ -48,13 +50,28 @@ func (c *Client) TTL(key string) (ttl uint64, err error) {
 
 // Get returns value by key
 func (c *Client) Get(key string) (value string, err error) {
-	err = c.call(valueDataFormatter(&value), "GET %s\r\n", key)
-	return
+	//err = c.call(valueDataFormatter(&value), "GET %s\r\n", key)
+
+	request := protocol.NewGetRequest(key)
+	response := protocol.NewValueResponse("", nil)
+	if err := c.callRequest(request, response); err != nil {
+		return "", err
+	}
+
+	return response.Value, response.Error()
 }
 
 // Set sets new key value
 func (c *Client) Set(key, value string, ttl uint64) error {
-	return c.call(emptyDataFormatter(), "SET %s %d %d\r\n%s\r\n", key, ttl, len(value), value)
+	//return c.call(emptyDataFormatter(), "SET %s %d %d\r\n%s\r\n", key, ttl, len(value), value)
+
+	request := protocol.NewSetRequest(key, value, ttl)
+	response := protocol.NewEmptyResponse(nil)
+	if err := c.callRequest(request, response); err != nil {
+		return err
+	}
+
+	return response.Error()
 }
 
 // Update updates existing key
@@ -64,7 +81,15 @@ func (c *Client) Update(key, value string) error {
 
 // Delete deletes value by key
 func (c *Client) Delete(key string) error {
-	return c.call(emptyDataFormatter(), "DEL %s\r\n", key)
+	//return c.call(emptyDataFormatter(), "DEL %s\r\n", key)
+
+	request := protocol.NewDelRequest(key)
+	response := protocol.NewEmptyResponse(nil)
+	if err := c.callRequest(request, response); err != nil {
+		return err
+	}
+
+	return response.Error()
 }
 
 // HashCreate creates new hash with ttl
@@ -152,11 +177,11 @@ func (c *Client) connFactory() (net.Conn, error) {
 		return nil, fmt.Errorf("Cannot connect: %s", err)
 	}
 
-	err = transfer(conn, conn, fmt.Sprintf("AUTH %s %s\r\n", c.user, c.password), emptyDataFormatter())
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("Cannot authentiticate: %s", err)
-	}
+	//err = transfer(conn, conn, fmt.Sprintf("AUTH %s %s\r\n", c.user, c.password), emptyDataFormatter())
+	//if err != nil {
+	//	conn.Close()
+	//	return nil, fmt.Errorf("Cannot authentiticate: %s", err)
+	//}
 
 	return conn, nil
 }
@@ -169,4 +194,32 @@ func (c *Client) call(dataFormatter dataFormatFunc, command string, params ...in
 	defer conn.Close()
 
 	return transfer(conn, conn, fmt.Sprintf(command, params...), dataFormatter)
+}
+
+func (c *Client) callRequest(request protocol.Request, response protocol.Response) error {
+	conn, err := c.connPool.Get()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	data, err := request.Encode()
+	if err != nil {
+		return err
+	}
+	_, err = conn.Write(data)
+	if err != nil {
+		return err
+	}
+
+	rb := bufio.NewReader(conn)
+	line, _, err := rb.ReadLine()
+	if err != nil {
+		return fmt.Errorf("Cannot read from connection: %s", err)
+	}
+	err = response.Decode(line, rb)
+	if err != nil {
+		return err
+	}
+	return nil
 }

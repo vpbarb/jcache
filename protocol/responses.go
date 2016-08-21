@@ -42,6 +42,19 @@ func (r response) encodeData(data []byte) ([]byte, error) {
 	return r.encodeResponse(response)
 }
 
+func (r response) Decode(header []byte, data io.Reader) error {
+	str := string(header)
+	switch {
+	case strings.HasPrefix(str, "ERROR"):
+		r.err = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, "ERROR "))
+		return nil
+	case str == "OK":
+		return nil
+		return nil
+	}
+	return invalidResponseFormatError
+}
+
 type valueResponse struct {
 	response
 	Value string
@@ -65,10 +78,11 @@ func (r *valueResponse) Decode(header []byte, data io.Reader) error {
 				return err
 			}
 			if isEnd {
-				r.Value = value
+				return nil
 			}
+			r.Value = value
+			return nil
 		}
-		return nil
 	}
 	return invalidResponseFormatError
 }
@@ -91,7 +105,7 @@ func readValue(buf *bufio.Reader) (string, bool, error) {
 		return "", true, nil
 	}
 	matches := valueHeaderRegexp.FindStringSubmatch(str)
-	if len(matches) == 0 {
+	if len(matches) < 1 {
 		return "", false, invalidDataFormatError
 	}
 	length, err := strconv.Atoi(matches[1])
