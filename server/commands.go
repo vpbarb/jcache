@@ -69,7 +69,6 @@ func parseValue(lengthParam string, data io.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	value := make([]byte, length, length)
 	n, err := data.Read(value)
 	if err != nil || n != length {
