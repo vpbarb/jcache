@@ -7,6 +7,21 @@ import (
 	"strconv"
 )
 
+const (
+	keyTemplate = "[a-zA-Z0-9_]+"
+	intTemplate = "[0-9_]+"
+)
+
+var (
+	invalidCommandFormatError = fmt.Errorf("Invalid command format")
+
+	keyRegexp              = regexp.MustCompile(keyTemplate)
+	ttlRegexp              = regexp.MustCompile(intTemplate)
+	lenRegexp              = regexp.MustCompile(intTemplate)
+	keyRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s)$", keyTemplate))
+	setRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s) (%s) (%s)$", keyTemplate, intTemplate, intTemplate))
+)
+
 type request struct {
 	command string
 }
@@ -14,13 +29,6 @@ type request struct {
 func (r request) Command() string {
 	return r.command
 }
-
-var (
-	invalidCommandFormatError = fmt.Errorf("Invalid command format")
-
-	keyRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s)$", keyTemplate))
-	setRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^[A-Z]+ (%s) (%s) (%s)$", keyTemplate, intTemplate, intTemplate))
-)
 
 type keyRequest struct {
 	request
@@ -52,22 +60,6 @@ func (r *keyRequest) Encode() ([]byte, error) {
 
 func newKeyRequest(command, key string) *keyRequest {
 	return &keyRequest{request{command: command}, key}
-}
-
-func NewGetRequest(key string) *keyRequest {
-	return newKeyRequest("GET", key)
-}
-
-func NewSetRequest(key, value string, ttl uint64) *setRequest {
-	return &setRequest{
-		keyRequest: newKeyRequest("SET", key),
-		Value:      value,
-		TTL:        ttl,
-	}
-}
-
-func NewDelRequest(key string) *keyRequest {
-	return newKeyRequest("DEL", key)
 }
 
 type setRequest struct {

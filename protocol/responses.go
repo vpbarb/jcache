@@ -87,14 +87,6 @@ func (r *valueResponse) Decode(header []byte, data io.Reader) error {
 	return invalidResponseFormatError
 }
 
-func NewEmptyResponse(err error) *response {
-	return &response{err: err}
-}
-
-func NewValueResponse(value string, err error) *valueResponse {
-	return &valueResponse{response: response{err: err}, Value: value}
-}
-
 func readValue(buf *bufio.Reader) (string, bool, error) {
 	line, _, err := buf.ReadLine()
 	if err != nil {
