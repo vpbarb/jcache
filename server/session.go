@@ -25,26 +25,26 @@ type session struct {
 
 func newSession(id string, rw io.ReadWriter, storage storage.Storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
 	commands := map[string]*command{
-		"KEYS":    newKeysCommand(storage),
-		"TTL":     newTTLCommand(storage),
-		"GET":     newGetCommand(storage),
-		"SET":     newSetCommand(storage),
-		"DEL":     newDelCommand(storage),
-		"UPD":     newUpdCommand(storage),
-		"HCREATE": newHashCreateCommand(storage),
-		"HGETALL": newHashGetAllCommand(storage),
-		"HGET":    newHashGetCommand(storage),
-		"HSET":    newHashSetCommand(storage),
-		"HDEL":    newHashDelCommand(storage),
-		"HLEN":    newHashLenCommand(storage),
-		"HKEYS":   newHashKeysCommand(storage),
-		"LCREATE": newListCreateCommand(storage),
-		"LLPOP":   newListLeftPopCommand(storage),
-		"LRPOP":   newListRightPopCommand(storage),
-		"LLPUSH":  newListLeftPushCommand(storage),
-		"LRPUSH":  newListRightPushCommand(storage),
-		"LLEN":    newListLenCommand(storage),
-		"LRANGE":  newListRangeCommand(storage),
+		//"KEYS":    newKeysCommand(storage),
+		//"TTL":     newTTLCommand(storage),
+		"GET": newGetCommand(storage),
+		"SET": newSetCommand(storage),
+		"DEL": newDelCommand(storage),
+		//"UPD":     newUpdCommand(storage),
+		//"HCREATE": newHashCreateCommand(storage),
+		//"HGETALL": newHashGetAllCommand(storage),
+		//"HGET":    newHashGetCommand(storage),
+		//"HSET":    newHashSetCommand(storage),
+		//"HDEL":    newHashDelCommand(storage),
+		//"HLEN":    newHashLenCommand(storage),
+		//"HKEYS":   newHashKeysCommand(storage),
+		//"LCREATE": newListCreateCommand(storage),
+		//"LLPOP":   newListLeftPopCommand(storage),
+		//"LRPOP":   newListRightPopCommand(storage),
+		//"LLPUSH":  newListLeftPushCommand(storage),
+		//"LRPUSH":  newListRightPushCommand(storage),
+		//"LLEN":    newListLenCommand(storage),
+		//"LRANGE":  newListRangeCommand(storage),
 	}
 
 	s := &session{
@@ -79,21 +79,23 @@ func (s *session) start() {
 					continue
 				}
 
-				var arguments string
-				if len(parts) > 1 {
-					arguments = parts[1]
-				}
-				matches := command.format.FindStringSubmatch(arguments)
-				if len(matches) > 0 {
-					var params []string
-					if len(matches) > 1 {
-						params = matches[1:]
-					}
-					s.log(fmt.Sprintf("run %s", parts[0]))
-					s.writeResponse(command.run(params, rb))
-				} else {
-					s.writeResponse(errorResponse("INVALID COMMAND FORMAT"))
-				}
+				s.rw.Write(command.process(line, rb))
+
+				//var arguments string
+				//if len(parts) > 1 {
+				//	arguments = parts[1]
+				//}
+				//matches := command.format.FindStringSubmatch(arguments)
+				//if len(matches) > 0 {
+				//	var params []string
+				//	if len(matches) > 1 {
+				//		params = matches[1:]
+				//	}
+				//	s.log(fmt.Sprintf("run %s", parts[0]))
+				//	s.writeResponse(command.run(params, rb))
+				//} else {
+				//	s.writeResponse(errorResponse("INVALID COMMAND FORMAT"))
+				//}
 			} else {
 				s.writeResponse(errorResponse("UNKNOWN COMMAND"))
 			}
