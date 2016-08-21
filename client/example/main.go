@@ -30,7 +30,7 @@ func testValueType(client *client.Client) {
 		log.Printf("Error: %s", err)
 	}
 
-	err = client.Set(key, "value1", time.Hour)
+	err = client.Set(key, "value1", 3600)
 	log.Printf("Set: %s", key)
 	if err != nil {
 		log.Printf("Error: %s", err)
@@ -49,7 +49,7 @@ func testValueType(client *client.Client) {
 	}
 
 	ttl, err := client.TTL(key)
-	log.Printf("TTL: %s = %s", key, ttl)
+	log.Printf("TTL: %s = %d", key, ttl)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
@@ -98,7 +98,7 @@ func testHashType(client *client.Client) {
 		log.Printf("Error: %s", err)
 	}
 
-	err = client.HashCreate(key, time.Hour)
+	err = client.HashCreate(key, 3600)
 	log.Printf("Create: %s", key)
 	if err != nil {
 		log.Printf("Error: %s", err)
@@ -111,7 +111,7 @@ func testHashType(client *client.Client) {
 	}
 
 	ttl, err := client.TTL(key)
-	log.Printf("TTL: %s = %s", key, ttl)
+	log.Printf("TTL: %s = %d", key, ttl)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
@@ -188,7 +188,7 @@ func testListType(client *client.Client) {
 		log.Printf("Error: %s", err)
 	}
 
-	err = client.ListCreate(key, time.Hour)
+	err = client.ListCreate(key, 3600)
 	log.Printf("Create: %s", key)
 	if err != nil {
 		log.Printf("Error: %s", err)
@@ -201,7 +201,7 @@ func testListType(client *client.Client) {
 	}
 
 	ttl, err := client.TTL(key)
-	log.Printf("TTL: %s = %s", key, ttl)
+	log.Printf("TTL: %s = %d", key, ttl)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}

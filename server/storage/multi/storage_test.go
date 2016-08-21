@@ -1,8 +1,6 @@
 package multi
 
 import (
-	"time"
-
 	"github.com/Barberrrry/jcache/server/storage/memory"
 	. "gopkg.in/check.v1"
 )
@@ -15,16 +13,16 @@ func (s *MultiStorageTestSuite) TestKeys(c *C) {
 	storage := NewStorage()
 	storage.AddStorage(memory.NewStorage())
 
-	storage.Set("key0", "value0", time.Duration(0))
-	storage.Set("key1", "value1", time.Duration(0))
-	storage.Set("key2", "value2", time.Duration(0))
-	storage.Set("key3", "value3", time.Duration(0))
-	storage.Set("key4", "value4", time.Duration(0))
-	storage.Set("key5", "value5", time.Duration(0))
-	storage.Set("key6", "value6", time.Duration(0))
-	storage.Set("key7", "value7", time.Duration(0))
-	storage.Set("key8", "value8", time.Duration(0))
-	storage.Set("key9", "value9", time.Duration(0))
+	storage.Set("key0", "value0", 0)
+	storage.Set("key1", "value1", 0)
+	storage.Set("key2", "value2", 0)
+	storage.Set("key3", "value3", 0)
+	storage.Set("key4", "value4", 0)
+	storage.Set("key5", "value5", 0)
+	storage.Set("key6", "value6", 0)
+	storage.Set("key7", "value7", 0)
+	storage.Set("key8", "value8", 0)
+	storage.Set("key9", "value9", 0)
 
 	c.Assert(storage.Keys(), DeepEquals, []string{
 		"key0",
@@ -50,7 +48,7 @@ func (s *MultiStorageTestSuite) TestSetAndGet(c *C) {
 	c.Assert(value1, Equals, "")
 
 	// Set key value
-	err2 := storage.Set("key", "value", time.Duration(0))
+	err2 := storage.Set("key", "value", 0)
 	c.Assert(err2, IsNil)
 
 	// Get existing key value
@@ -63,6 +61,6 @@ func (s *MultiStorageTestSuite) TestSetAndGet(c *C) {
 	c.Assert(err4, ErrorMatches, "Key type is not hash")
 
 	// Try to set existing key value
-	err5 := storage.Set("key", "value", time.Duration(0))
+	err5 := storage.Set("key", "value", 0)
 	c.Assert(err5, ErrorMatches, `Key "key" already exists`)
 }

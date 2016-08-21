@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 
@@ -9,7 +10,13 @@ import (
 
 type CallTestSuite struct{}
 
-var _ = Suite(&CallTestSuite{})
+var (
+	_ = Suite(&CallTestSuite{})
+
+	nilDataFormatter = func(response *bufio.Reader) (err error) {
+		return nil
+	}
+)
 
 type errorWriter struct {
 	err error
@@ -23,16 +30,15 @@ func (s *CallTestSuite) TestWriteError(c *C) {
 	w := &errorWriter{errors.New("Write error")}
 	r := &bytes.Buffer{}
 
-	response, err := transfer(w, r, "TEST")
+	err := transfer(w, r, "TEST\r\n", nilDataFormatter)
 	c.Assert(err, ErrorMatches, "Cannot write to connection: Write error")
-	c.Assert(response, IsNil)
 }
 
 func (s *CallTestSuite) TestWriteOk(c *C) {
 	w := &bytes.Buffer{}
 	r := &bytes.Buffer{}
 
-	transfer(w, r, "TEST")
+	transfer(w, r, "TEST\r\n", nilDataFormatter)
 	c.Assert(w.String(), DeepEquals, "TEST\r\n")
 }
 
@@ -40,61 +46,55 @@ func (s *CallTestSuite) TestReadError(c *C) {
 	w := &bytes.Buffer{}
 	r := &bytes.Buffer{}
 
-	response, err := transfer(w, r, "TEST")
+	err := transfer(w, r, "TEST\r\n", nilDataFormatter)
 	c.Assert(err, ErrorMatches, "Cannot read from connection: EOF")
-	c.Assert(response, IsNil)
-}
-
-//func (s *CallTestSuite) TestInvalidRowsCount(c *C) {
-//	w := &bytes.Buffer{}
-//	r := bytes.NewBufferString("$a\r\n")
-//
-//	response, err := call(w, r, "TEST")
-//	c.Assert(err, ErrorMatches, "Invalid response rows count")
-//	c.Assert(response, IsNil)
-//}
-
-func (s *CallTestSuite) TestFirstEmptyLine(c *C) {
-	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("\r\n+\r\n")
-
-	response, err := transfer(w, r, "TEST")
-	c.Assert(err, IsNil)
-	c.Assert(response, IsNil)
 }
 
 func (s *CallTestSuite) TestResponseOk(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("+\r\n")
+	r := bytes.NewBufferString("OK\r\n")
 
-	response, err := transfer(w, r, "TEST")
+	err := transfer(w, r, "TEST\r\n", nilDataFormatter)
 	c.Assert(err, IsNil)
-	c.Assert(response, IsNil)
 }
 
 func (s *CallTestSuite) TestResponseError(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("-MESSAGE\r\n")
+	r := bytes.NewBufferString("ERROR MESSAGE\r\n")
 
-	response, err := transfer(w, r, "TEST")
-	c.Assert(err, ErrorMatches, "MESSAGE")
-	c.Assert(response, IsNil)
+	err := transfer(w, r, "TEST\r\n", nilDataFormatter)
+	c.Assert(err, ErrorMatches, "Response error: MESSAGE")
 }
 
-func (s *CallTestSuite) TestResponseSingleLine(c *C) {
+func (s *CallTestSuite) TestResponseData(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("\"value\"\r\n+\r\n")
+	r := bytes.NewBufferString("DATA\r\nsome data\r\nEND\r\n")
 
-	response, err := transfer(w, r, "TEST")
+	var data string
+	dataFormatter := func(response *bufio.Reader) (err error) {
+		for {
+			line, _, err := response.ReadLine()
+			if err != nil {
+				return err
+			}
+			str := string(line)
+			if str == endResponse {
+				return nil
+			}
+			data = str
+		}
+		return nil
+	}
+
+	err := transfer(w, r, "TEST", dataFormatter)
 	c.Assert(err, IsNil)
-	c.Assert(response, DeepEquals, []string{`"value"`})
+	c.Assert(data, Equals, "some data")
 }
 
-func (s *CallTestSuite) TestResponseMultiLine(c *C) {
+func (s *CallTestSuite) TestResponseInvalid(c *C) {
 	w := &bytes.Buffer{}
-	r := bytes.NewBufferString("key1\r\nkey2\r\nkey3\r\n+\r\n")
+	r := bytes.NewBufferString("WTF\r\n")
 
-	response, err := transfer(w, r, "TEST")
-	c.Assert(err, IsNil)
-	c.Assert(response, DeepEquals, []string{"key1", "key2", "key3"})
+	err := transfer(w, r, "TEST\r\n", nilDataFormatter)
+	c.Assert(err, ErrorMatches, "Invalid response format")
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	commonStorage "github.com/Barberrrry/jcache/server/storage"
 )
@@ -72,18 +71,15 @@ func (s *storage) Keys() []string {
 }
 
 // TTL returns ttl of specified key. Error will occur if key doesn't exist.
-func (s *storage) TTL(key string) (time.Duration, error) {
+func (s *storage) TTL(key string) (uint64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	item, err := s.getItem(key)
 	if err != nil {
-		return time.Duration(0), err
+		return uint64(0), err
 	}
-	if item.ExpireTime.IsZero() {
-		return time.Duration(0), nil
-	}
-	return item.ExpireTime.Sub(time.Now()), nil
+	return item.GetTTL(), nil
 }
 
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
@@ -98,9 +94,9 @@ func (s *storage) Get(key string) (string, error) {
 	return item.CastString()
 }
 
-// Set value of specified key with ttl. Use zero duration if key should exist forever.
+// Set value of specified key with ttl. Use zero ttl if key should exist forever.
 // Error will occur if key already exists.
-func (s *storage) Set(key, value string, ttl time.Duration) error {
+func (s *storage) Set(key, value string, ttl uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -109,7 +105,7 @@ func (s *storage) Set(key, value string, ttl time.Duration) error {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
 
-	s.items[key] = commonStorage.NewItem(key, value, ttl)
+	s.items[key] = commonStorage.NewItem(value, ttl)
 	return nil
 }
 
@@ -140,8 +136,8 @@ func (s *storage) Delete(key string) error {
 	return nil
 }
 
-// HashCreate creates new hash with specified key and ttl. Use zero duration if key should exist forever.
-func (s *storage) HashCreate(key string, ttl time.Duration) error {
+// HashCreate creates new hash with specified key and ttl. Use zero ttl if key should exist forever.
+func (s *storage) HashCreate(key string, ttl uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -149,7 +145,7 @@ func (s *storage) HashCreate(key string, ttl time.Duration) error {
 	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
-	s.items[key] = commonStorage.NewItem(key, make(commonStorage.Hash), ttl)
+	s.items[key] = commonStorage.NewItem(make(commonStorage.Hash), ttl)
 	return nil
 }
 
@@ -235,8 +231,8 @@ func (s *storage) HashKeys(key string) ([]string, error) {
 	return keys, nil
 }
 
-// ListCreate creates new list with specified key and ttl. Use zero duration if key should exist forever.
-func (s *storage) ListCreate(key string, ttl time.Duration) error {
+// ListCreate creates new list with specified key and ttl. Use zero ttl if key should exist forever.
+func (s *storage) ListCreate(key string, ttl uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -244,7 +240,7 @@ func (s *storage) ListCreate(key string, ttl time.Duration) error {
 	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
 	}
-	s.items[key] = commonStorage.NewItem(key, list.New(), ttl)
+	s.items[key] = commonStorage.NewItem(list.New(), ttl)
 	return nil
 }
 

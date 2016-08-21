@@ -1,29 +1,29 @@
 package server
 
 import (
-	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
-	"time"
 
 	"github.com/Barberrrry/jcache/server/htpasswd"
 	"github.com/Barberrrry/jcache/server/storage"
+	"github.com/mkabischev/lodge/ioutil"
 )
 
 const (
-	keyPattern   = `([a-zA-Z0-9_]+)`
-	valuePattern = `"(.*)"`
-	fieldPattern = `([a-zA-Z0-9_]+)`
-	ttlPattern   = `([a-zA-Z0-9-.]+)`
-	intPattern   = `([0-9]+)`
+	keyPattern = `([a-zA-Z0-9_]+)`
+	intPattern = `([0-9]+)`
 
-	errorTemplate       = "-%s"
-	keyTemplate         = "%s"
-	valueTemplate       = `"%s"`
-	hashElementTemplate = `%s:"%s"`
-	lenTemplate         = "%d"
-	okTemplate          = "+"
+	okTemplate        = "OK"
+	errorTemplate     = "ERROR %s"
+	dataTemplate      = "DATA"
+	endTemplate       = "END"
+	keyTemplate       = "KEY %s"
+	valueTemplate     = "VALUE %d"
+	hashFieldTemplate = "FIELD %s %d"
+	lenTemplate       = "LEN %d"
+	ttlTemplate       = "TTL %d"
 )
 
 var (
@@ -31,33 +31,64 @@ var (
 )
 
 type command struct {
-	format     *regexp.Regexp
-	run        func(params []string) []string
-	allowGuest bool
+	format       *regexp.Regexp
+	run          func(params []string, data io.Reader) []string
+	requiredData bool
+	allowGuest   bool
 }
 
-func errorResponse(err error) []string {
+func errorResponse(err interface{}) []string {
 	return []string{fmt.Sprintf(errorTemplate, err)}
 }
 
 func valueResponse(value string) []string {
-	return []string{fmt.Sprintf(valueTemplate, value), okTemplate}
+	response := []string{dataTemplate}
+	response = append(response, valueLines(value)...)
+	response = append(response, endTemplate)
+	return response
 }
 
-func lenResponse(len int) []string {
-	return []string{fmt.Sprintf(lenTemplate, len), okTemplate}
+func valueLines(value string) []string {
+	return []string{fmt.Sprintf(valueTemplate, len(value)), value}
+}
+
+func lengthResponse(length int) []string {
+	return []string{dataTemplate, fmt.Sprintf(lenTemplate, length), endTemplate}
+}
+
+func hashFieldLines(field, value string) []string {
+	return []string{
+		fmt.Sprintf(hashFieldTemplate, field, len(value)),
+		value,
+	}
+}
+
+func parseValue(lengthParam string, data io.Reader) (string, error) {
+	length, err := strconv.Atoi(lengthParam)
+	if err != nil {
+		return "", err
+	}
+	value, err := ioutil.Read(data, length)
+	if err != nil {
+		return "", err
+	}
+	return string(value), nil
+}
+
+func parseTTL(ttlParam string) (uint64, error) {
+	return strconv.ParseUint(ttlParam, 10, 0)
 }
 
 func newKeysCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile("^$"),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			keys := storage.Keys()
-			var response []string
+			response := []string{dataTemplate}
 			for _, key := range keys {
 				response = append(response, fmt.Sprintf(keyTemplate, key))
 			}
-			response = append(response, okTemplate)
+			response = append(response, endTemplate)
 			return response
 		},
 	}
@@ -66,12 +97,12 @@ func newKeysCommand(storage storage.Storage) *command {
 func newTTLCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			ttl, err := storage.TTL(params[0])
 			if err != nil {
 				return errorResponse(err)
 			}
-			return []string{ttl.String(), okTemplate}
+			return []string{dataTemplate, fmt.Sprintf(ttlTemplate, ttl), endTemplate}
 		},
 	}
 }
@@ -79,7 +110,7 @@ func newTTLCommand(storage storage.Storage) *command {
 func newGetCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			value, err := storage.Get(params[0])
 			if err != nil {
 				return errorResponse(err)
@@ -91,13 +122,18 @@ func newGetCommand(storage storage.Storage) *command {
 
 func newSetCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, valuePattern, ttlPattern)),
-		run: func(params []string) []string {
-			ttl, err := time.ParseDuration(params[2])
+		format:       regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
+		requiredData: true,
+		run: func(params []string, data io.Reader) []string {
+			ttl, err := parseTTL(params[1])
 			if err != nil {
 				return errorResponse(err)
 			}
-			if err := storage.Set(params[0], params[1], ttl); err != nil {
+			value, err := parseValue(params[2], data)
+			if err != nil {
+				return errorResponse(err)
+			}
+			if err := storage.Set(params[0], value, ttl); err != nil {
 				return errorResponse(err)
 			}
 			return okResponse
@@ -107,9 +143,14 @@ func newSetCommand(storage storage.Storage) *command {
 
 func newUpdCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
-		run: func(params []string) []string {
-			if err := storage.Update(params[0], params[1]); err != nil {
+		format:       regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
+		requiredData: true,
+		run: func(params []string, data io.Reader) []string {
+			value, err := parseValue(params[1], data)
+			if err != nil {
+				return errorResponse(err)
+			}
+			if err := storage.Update(params[0], value); err != nil {
 				return errorResponse(err)
 			}
 			return okResponse
@@ -120,7 +161,7 @@ func newUpdCommand(storage storage.Storage) *command {
 func newDelCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			if err := storage.Delete(params[0]); err != nil {
 				return errorResponse(err)
 			}
@@ -131,9 +172,9 @@ func newDelCommand(storage storage.Storage) *command {
 
 func newHashCreateCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
-		run: func(params []string) []string {
-			ttl, err := time.ParseDuration(params[1])
+		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
+		run: func(params []string, data io.Reader) []string {
+			ttl, err := parseTTL(params[1])
 			if err != nil {
 				return errorResponse(err)
 			}
@@ -149,16 +190,16 @@ func newHashCreateCommand(storage storage.Storage) *command {
 func newHashGetAllCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			hash, err := storage.HashGetAll(params[0])
 			if err != nil {
 				return errorResponse(err)
 			}
-			var response []string
-			for key, value := range hash {
-				response = append(response, fmt.Sprintf(hashElementTemplate, key, value))
+			response := []string{dataTemplate}
+			for field, value := range hash {
+				response = append(response, hashFieldLines(field, value)...)
 			}
-			response = append(response, okTemplate)
+			response = append(response, endTemplate)
 			return response
 		},
 	}
@@ -166,8 +207,8 @@ func newHashGetAllCommand(storage storage.Storage) *command {
 
 func newHashGetCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
-		run: func(params []string) []string {
+		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, keyPattern)),
+		run: func(params []string, data io.Reader) []string {
 			value, err := storage.HashGet(params[0], params[1])
 			if err != nil {
 				return errorResponse(err)
@@ -179,9 +220,14 @@ func newHashGetCommand(storage storage.Storage) *command {
 
 func newHashSetCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, fieldPattern, valuePattern)),
-		run: func(params []string) []string {
-			if err := storage.HashSet(params[0], params[1], params[2]); err != nil {
+		format:       regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, keyPattern, intPattern)),
+		requiredData: true,
+		run: func(params []string, data io.Reader) []string {
+			value, err := parseValue(params[2], data)
+			if err != nil {
+				return errorResponse(err)
+			}
+			if err := storage.HashSet(params[0], params[1], value); err != nil {
 				return errorResponse(err)
 			}
 			return okResponse
@@ -191,8 +237,8 @@ func newHashSetCommand(storage storage.Storage) *command {
 
 func newHashDelCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, fieldPattern)),
-		run: func(params []string) []string {
+		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, keyPattern)),
+		run: func(params []string, data io.Reader) []string {
 			if err := storage.HashDelete(params[0], params[1]); err != nil {
 				return errorResponse(err)
 			}
@@ -204,12 +250,12 @@ func newHashDelCommand(storage storage.Storage) *command {
 func newHashLenCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			len, err := storage.HashLen(params[0])
 			if err != nil {
 				return errorResponse(err)
 			}
-			return lenResponse(len)
+			return lengthResponse(len)
 		},
 	}
 }
@@ -217,16 +263,16 @@ func newHashLenCommand(storage storage.Storage) *command {
 func newHashKeysCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			keys, err := storage.HashKeys(params[0])
 			if err != nil {
 				return errorResponse(err)
 			}
-			var response []string
+			response := []string{dataTemplate}
 			for _, key := range keys {
 				response = append(response, fmt.Sprintf(keyTemplate, key))
 			}
-			response = append(response, okTemplate)
+			response = append(response, endTemplate)
 			return response
 		},
 	}
@@ -234,9 +280,9 @@ func newHashKeysCommand(storage storage.Storage) *command {
 
 func newListCreateCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, ttlPattern)),
-		run: func(params []string) []string {
-			ttl, err := time.ParseDuration(params[1])
+		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
+		run: func(params []string, data io.Reader) []string {
+			ttl, err := parseTTL(params[1])
 			if err != nil {
 				return errorResponse(err)
 			}
@@ -252,7 +298,7 @@ func newListCreateCommand(storage storage.Storage) *command {
 func newListLeftPopCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			value, err := storage.ListLeftPop(params[0])
 			if err != nil {
 				return errorResponse(err)
@@ -265,7 +311,7 @@ func newListLeftPopCommand(storage storage.Storage) *command {
 func newListRightPopCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			value, err := storage.ListRightPop(params[0])
 			if err != nil {
 				return errorResponse(err)
@@ -277,9 +323,14 @@ func newListRightPopCommand(storage storage.Storage) *command {
 
 func newListLeftPushCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
-		run: func(params []string) []string {
-			if err := storage.ListLeftPush(params[0], params[1]); err != nil {
+		format:       regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
+		requiredData: true,
+		run: func(params []string, data io.Reader) []string {
+			value, err := parseValue(params[1], data)
+			if err != nil {
+				return errorResponse(err)
+			}
+			if err := storage.ListLeftPush(params[0], value); err != nil {
 				return errorResponse(err)
 			}
 			return okResponse
@@ -289,9 +340,14 @@ func newListLeftPushCommand(storage storage.Storage) *command {
 
 func newListRightPushCommand(storage storage.Storage) *command {
 	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, valuePattern)),
-		run: func(params []string) []string {
-			if err := storage.ListRightPush(params[0], params[1]); err != nil {
+		format:       regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
+		requiredData: true,
+		run: func(params []string, data io.Reader) []string {
+			value, err := parseValue(params[1], data)
+			if err != nil {
+				return errorResponse(err)
+			}
+			if err := storage.ListRightPush(params[0], value); err != nil {
 				return errorResponse(err)
 			}
 			return okResponse
@@ -302,12 +358,12 @@ func newListRightPushCommand(storage storage.Storage) *command {
 func newListLenCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			len, err := storage.ListLen(params[0])
 			if err != nil {
 				return errorResponse(err)
 			}
-			return lenResponse(len)
+			return lengthResponse(len)
 		},
 	}
 }
@@ -315,7 +371,7 @@ func newListLenCommand(storage storage.Storage) *command {
 func newListRangeCommand(storage storage.Storage) *command {
 	return &command{
 		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			start, err := strconv.Atoi(params[1])
 			if err != nil {
 				return errorResponse(err)
@@ -329,11 +385,11 @@ func newListRangeCommand(storage storage.Storage) *command {
 			if err != nil {
 				return errorResponse(err)
 			}
-			var response []string
+			response := []string{dataTemplate}
 			for _, value := range values {
-				response = append(response, fmt.Sprintf(valueTemplate, value))
+				response = append(response, valueLines(value)...)
 			}
-			response = append(response, okTemplate)
+			response = append(response, endTemplate)
 			return response
 		},
 	}
@@ -343,12 +399,12 @@ func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) *comm
 	return &command{
 		allowGuest: true,
 		format:     regexp.MustCompile("^([a-zA-Z0-9]+) (.+)$"),
-		run: func(params []string) []string {
+		run: func(params []string, data io.Reader) []string {
 			if htpasswdFile == nil || htpasswdFile.Validate(params[0], params[1]) {
 				session.authorize()
 				return okResponse
 			}
-			return errorResponse(errors.New("INVALID CREDENTIALS"))
+			return errorResponse("INVALID CREDENTIALS")
 		},
 	}
 }

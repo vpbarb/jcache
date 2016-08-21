@@ -3,7 +3,6 @@ package multi
 import (
 	"hash/fnv"
 	"sort"
-	"time"
 
 	commonStorage "github.com/Barberrrry/jcache/server/storage"
 )
@@ -41,7 +40,7 @@ func (s *storage) Keys() []string {
 }
 
 // TTL returns ttl of specified key. Error will occur if key doesn't exist.
-func (s *storage) TTL(key string) (time.Duration, error) {
+func (s *storage) TTL(key string) (uint64, error) {
 	return s.getStorage(key).TTL(key)
 }
 
@@ -52,7 +51,7 @@ func (s *storage) Get(key string) (string, error) {
 
 // Set value of specified key with ttl. Use zero duration if key should exist forever.
 // Error will occur if key already exists.
-func (s *storage) Set(key, value string, ttl time.Duration) error {
+func (s *storage) Set(key, value string, ttl uint64) error {
 	return s.getStorage(key).Set(key, value, ttl)
 }
 
@@ -67,7 +66,7 @@ func (s *storage) Delete(key string) error {
 }
 
 // HashCreate creates new hash with specified key and ttl. Use zero duration if key should exist forever.
-func (s *storage) HashCreate(key string, ttl time.Duration) error {
+func (s *storage) HashCreate(key string, ttl uint64) error {
 	return s.getStorage(key).HashCreate(key, ttl)
 }
 
@@ -103,7 +102,7 @@ func (s *storage) HashKeys(key string) ([]string, error) {
 }
 
 // ListCreate creates new list with specified key and ttl. Use zero duration if key should exist forever.
-func (s *storage) ListCreate(key string, ttl time.Duration) error {
+func (s *storage) ListCreate(key string, ttl uint64) error {
 	return s.getStorage(key).ListCreate(key, ttl)
 }
 

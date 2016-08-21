@@ -2,7 +2,6 @@ package server
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -64,55 +63,49 @@ func newSession(id string, rw io.ReadWriter, storage storage.Storage, htpasswdFi
 
 func (s *session) start() {
 	s.log("start session")
+	rb := bufio.NewReader(s.rw)
 	for {
-		if err := s.handleInput(); err != nil {
+		line, _, err := rb.ReadLine()
+		if err != nil {
+			s.log(fmt.Sprintf("read error: %s", err))
 			break
+		}
+
+		if len(line) > 0 {
+			parts := strings.SplitN(string(line), " ", 2)
+			if command, found := s.commands[parts[0]]; found {
+				if s.isAuthRequired && !command.allowGuest && !s.isAuthorized {
+					s.writeResponse(errorResponse("NEED AUTHENTICATION"))
+					continue
+				}
+
+				var arguments string
+				if len(parts) > 1 {
+					arguments = parts[1]
+				}
+				matches := command.format.FindStringSubmatch(arguments)
+				if len(matches) > 0 {
+					var params []string
+					if len(matches) > 1 {
+						params = matches[1:]
+					}
+					s.log(fmt.Sprintf("run %s", parts[0]))
+					s.writeResponse(command.run(params, rb))
+				} else {
+					s.writeResponse(errorResponse("INVALID COMMAND FORMAT"))
+				}
+			} else {
+				s.writeResponse(errorResponse("UNKNOWN COMMAND"))
+			}
 		}
 	}
 	s.log("close session")
 }
 
-func (s *session) handleInput() error {
-	buf := bufio.NewReader(s.rw)
-	line, _, err := buf.ReadLine()
-
-	if err != nil {
-		return err
+func (s *session) writeResponse(response []string) {
+	for _, line := range response {
+		s.rw.Write([]byte(line + lineSeparator))
 	}
-
-	if len(line) > 0 {
-		response := s.handleCommand(string(line))
-		for _, l := range response {
-			s.rw.Write([]byte(l + lineSeparator))
-		}
-	}
-
-	return nil
-}
-
-func (s *session) handleCommand(line string) []string {
-	parts := strings.SplitN(line, " ", 2)
-	if command, found := s.commands[parts[0]]; found {
-		if s.isAuthRequired && !command.allowGuest && !s.isAuthorized {
-			return errorResponse(errors.New("NEED AUTHENTICATION"))
-		}
-
-		var arguments string
-		if len(parts) > 1 {
-			arguments = parts[1]
-		}
-		matches := command.format.FindStringSubmatch(arguments)
-		if len(matches) > 0 {
-			var params []string
-			if len(matches) > 1 {
-				params = matches[1:]
-			}
-			s.log(fmt.Sprintf("run %s", parts[0]))
-			return command.run(params)
-		}
-		return errorResponse(errors.New("INVALID COMMAND FORMAT"))
-	}
-	return errorResponse(errors.New("UNKNOWN COMMAND"))
 }
 
 func (s *session) authorize() {

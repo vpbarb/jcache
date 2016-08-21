@@ -1,10 +1,8 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"time"
 
 	"gopkg.in/fatih/pool.v2"
@@ -12,34 +10,25 @@ import (
 
 // Client is a client for jcache server
 type Client struct {
+	addr     string
+	timeout  time.Duration
+	user     string
+	password string
 	connPool pool.Pool
 }
 
-type responseFormatFunc func(response []string) error
-
-var (
-	nilResponseFormatter = func(response []string) error { return nil }
-)
-
 // New creates new client instance
 func New(addr, user, password string, timeout time.Duration, maxConnections int) (*Client, error) {
-	factory := func() (net.Conn, error) {
-		conn, err := net.DialTimeout("tcp", addr, timeout)
-		if err != nil {
-			return nil, fmt.Errorf("Cannot connect: %s", err)
-		}
-
-		_, err = transfer(conn, conn, fmt.Sprintf("AUTH %s %s", user, password))
-		if err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("Cannot authentiticate: %s", err)
-		}
-
-		return conn, nil
+	client := &Client{
+		addr:     addr,
+		user:     user,
+		password: password,
+		timeout:  timeout,
 	}
 
-	if connPool, err := pool.NewChannelPool(0, maxConnections, factory); err == nil {
-		return &Client{connPool: connPool}, nil
+	if connPool, err := pool.NewChannelPool(0, maxConnections, client.connFactory); err == nil {
+		client.connPool = connPool
+		return client, nil
 	} else {
 		return nil, fmt.Errorf("Cannot create connection pool: %s", err)
 	}
@@ -47,190 +36,137 @@ func New(addr, user, password string, timeout time.Duration, maxConnections int)
 
 // Keys returns all keys
 func (c *Client) Keys() (keys []string, err error) {
-	err = c.call(keysResponseFormatter(&keys), "KEYS")
+	err = c.call(keysDataFormatter(&keys), "KEYS\r\n")
 	return
 }
 
 // TTL returns ttl of key
-func (c *Client) TTL(key string) (ttl time.Duration, err error) {
-	err = c.call(ttlResponseFormatter(&ttl), "TTL %s", key)
+func (c *Client) TTL(key string) (ttl uint64, err error) {
+	err = c.call(ttlDataFormatter(&ttl), "TTL %s\r\n", key)
 	return
 }
 
 // Get returns value by key
 func (c *Client) Get(key string) (value string, err error) {
-	err = c.call(valueResponseFormatter(&value), "GET %s", key)
+	err = c.call(valueDataFormatter(&value), "GET %s\r\n", key)
 	return
 }
 
 // Set sets new key value
-func (c *Client) Set(key, value string, ttl time.Duration) error {
-	return c.call(nilResponseFormatter, `SET %s "%s" %s`, key, value, ttl)
+func (c *Client) Set(key, value string, ttl uint64) error {
+	return c.call(emptyDataFormatter(), "SET %s %d %d\r\n%s\r\n", key, ttl, len(value), value)
 }
 
 // Update updates existing key
 func (c *Client) Update(key, value string) error {
-	return c.call(nilResponseFormatter, `UPD %s "%s"`, key, value)
+	return c.call(emptyDataFormatter(), "UPD %s %d\r\n%s\r\n", key, len(value), value)
 }
 
 // Delete deletes value by key
 func (c *Client) Delete(key string) error {
-	return c.call(nilResponseFormatter, "DEL %s", key)
+	return c.call(emptyDataFormatter(), "DEL %s\r\n", key)
 }
 
 // HashCreate creates new hash with ttl
-func (c *Client) HashCreate(key string, ttl time.Duration) error {
-	return c.call(nilResponseFormatter, "HCREATE %s %s", key, ttl)
+func (c *Client) HashCreate(key string, ttl uint64) error {
+	return c.call(emptyDataFormatter(), "HCREATE %s %d\r\n", key, ttl)
 }
 
 // HashSet add new field to hash
 func (c *Client) HashSet(key, field, value string) error {
-	return c.call(nilResponseFormatter, `HSET %s %s "%s"`, key, field, value)
+	return c.call(emptyDataFormatter(), "HSET %s %s %d\r\n%s\r\n", key, field, len(value), value)
 }
 
 // HashGet returns hash field value
 func (c *Client) HashGet(key, field string) (value string, err error) {
-	err = c.call(valueResponseFormatter(&value), "HGET %s %s", key, field)
+	err = c.call(valueDataFormatter(&value), "HGET %s %s\r\n", key, field)
 	return
 }
 
 // HashGetAll returns all hash fields values
 func (c *Client) HashGetAll(key string) (hash map[string]string, err error) {
 	hash = make(map[string]string)
-	err = c.call(hashResponseFormatter(hash), "HGETALL %s", key)
+	err = c.call(hashDataFormatter(hash), "HGETALL %s\r\n", key)
 	return
 }
 
 // HashDelete deletes field from hash
 func (c *Client) HashDelete(key, field string) error {
-	return c.call(nilResponseFormatter, `HDEL %s %s`, key, field)
+	return c.call(emptyDataFormatter(), "HDEL %s %s\r\n", key, field)
 }
 
 // HashKeys returns all hash fields
 func (c *Client) HashKeys(key string) (keys []string, err error) {
-	err = c.call(keysResponseFormatter(&keys), "HKEYS %s", key)
+	err = c.call(keysDataFormatter(&keys), "HKEYS %s\r\n", key)
 	return
 }
 
 // HashLength returns count of hash elements
-func (c *Client) HashLength(key string) (len int, err error) {
-	err = c.call(lenResponseFormatter(&len), "HLEN %s", key)
+func (c *Client) HashLength(key string) (len uint64, err error) {
+	err = c.call(lenDataFormatter(&len), "HLEN %s\r\n", key)
 	return
 }
 
 // ListCreate creates new list with ttl
-func (c *Client) ListCreate(key string, ttl time.Duration) error {
-	return c.call(nilResponseFormatter, "LCREATE %s %s", key, ttl)
+func (c *Client) ListCreate(key string, ttl uint64) error {
+	return c.call(emptyDataFormatter(), "LCREATE %s %d\r\n", key, ttl)
 }
 
 // ListRightPush adds new value to the list ending
 func (c *Client) ListRightPush(key, value string) error {
-	return c.call(nilResponseFormatter, `LRPUSH %s "%s"`, key, value)
+	return c.call(emptyDataFormatter(), "LRPUSH %s %d\r\n%s\r\n", key, len(value), value)
 }
 
 // ListLeftPush adds new value to the list beginning
 func (c *Client) ListLeftPush(key, value string) error {
-	return c.call(nilResponseFormatter, `LLPUSH %s "%s"`, key, value)
+	return c.call(emptyDataFormatter(), "LLPUSH %s %d\r\n%s\r\n", key, len(value), value)
 }
 
 // ListRightPop returns and removes the value from the list ending
 func (c *Client) ListRightPop(key string) (value string, err error) {
-	err = c.call(valueResponseFormatter(&value), "LRPOP %s", key)
+	err = c.call(valueDataFormatter(&value), "LRPOP %s\r\n", key)
 	return
 }
 
 // ListLeftPop returns and removes the value from the list beginning
 func (c *Client) ListLeftPop(key string) (value string, err error) {
-	err = c.call(valueResponseFormatter(&value), "LLPOP %s", key)
+	err = c.call(valueDataFormatter(&value), "LLPOP %s\r\n", key)
 	return
 }
 
 // ListLength returns count of list elements
-func (c *Client) ListLength(key string) (len int, err error) {
-	err = c.call(lenResponseFormatter(&len), "LLEN %s", key)
+func (c *Client) ListLength(key string) (len uint64, err error) {
+	err = c.call(lenDataFormatter(&len), "LLEN %s\r\n", key)
 	return
 }
 
 // ListRange returns all list values from start to stop
 func (c *Client) ListRange(key string, start, stop int) (values []string, err error) {
-	err = c.call(valuesResponseFormatter(&values), "LRANGE %s %d %d", key, start, stop)
+	err = c.call(valuesDataFormatter(&values), "LRANGE %s %d %d\r\n", key, start, stop)
 	return
 }
 
-func (c *Client) call(responseFormatter responseFormatFunc, command string, params ...interface{}) error {
+func (c *Client) connFactory() (net.Conn, error) {
+	conn, err := net.DialTimeout("tcp", c.addr, c.timeout)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot connect: %s", err)
+	}
+
+	err = transfer(conn, conn, fmt.Sprintf("AUTH %s %s\r\n", c.user, c.password), emptyDataFormatter())
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("Cannot authentiticate: %s", err)
+	}
+
+	return conn, nil
+}
+
+func (c *Client) call(dataFormatter dataFormatFunc, command string, params ...interface{}) error {
 	conn, err := c.connPool.Get()
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	response, err := transfer(conn, conn, fmt.Sprintf(command, params...))
-	if err != nil {
-		return err
-	}
-
-	return responseFormatter(response)
-}
-
-func keysResponseFormatter(keys *[]string) responseFormatFunc {
-	return func(response []string) (err error) {
-		*keys = response
-		return
-	}
-}
-
-func valueResponseFormatter(value *string) responseFormatFunc {
-	return func(response []string) (err error) {
-		if len(response) < 1 {
-			return errors.New("Invalid response rows count")
-		}
-		*value, err = parseValue(response[0])
-		return
-	}
-}
-
-func valuesResponseFormatter(values *[]string) responseFormatFunc {
-	return func(response []string) (err error) {
-		for _, line := range response {
-			v, err := parseValue(line)
-			if err != nil {
-				return err
-			}
-			*values = append(*values, v)
-		}
-		return
-	}
-}
-
-func ttlResponseFormatter(ttl *time.Duration) responseFormatFunc {
-	return func(response []string) (err error) {
-		if len(response) < 1 {
-			return errors.New("Invalid response rows count")
-		}
-		*ttl, err = parseTTL(response[0])
-		return
-	}
-}
-
-func hashResponseFormatter(hash map[string]string) responseFormatFunc {
-	return func(response []string) (err error) {
-		for _, line := range response {
-			field, value, err := parseHashField(line)
-			if err != nil {
-				return err
-			}
-			hash[field] = value
-		}
-		return
-	}
-}
-
-func lenResponseFormatter(length *int) responseFormatFunc {
-	return func(response []string) (err error) {
-		if len(response) < 1 {
-			return errors.New("Invalid response rows count")
-		}
-		*length, err = strconv.Atoi(response[0])
-		return
-	}
+	return transfer(conn, conn, fmt.Sprintf(command, params...), dataFormatter)
 }

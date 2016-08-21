@@ -2,44 +2,32 @@ package client
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 )
 
-const (
-	okPrefix    = "+"
-	errorPrefix = "-"
-)
-
-func transfer(w io.Writer, r io.Reader, command string) ([]string, error) {
+func transfer(w io.Writer, r io.Reader, request string, dataFormatter dataFormatFunc) error {
 	wb := bufio.NewWriter(w)
-	rb := bufio.NewReader(r)
-	wb.WriteString(command + "\r\n")
+	wb.WriteString(request)
 	if err := wb.Flush(); err != nil {
-		return nil, fmt.Errorf("Cannot write to connection: %s", err)
+		return fmt.Errorf("Cannot write to connection: %s", err)
 	}
 
-	var response []string
-	for {
-		line, _, err := rb.ReadLine()
-		if err != nil {
-			return nil, fmt.Errorf("Cannot read from connection: %s", err)
-		}
-		str := string(line)
-		switch {
-		case str == "":
-			// Ignore empty line and read next one
-			continue
-		case strings.HasPrefix(str, okPrefix):
-			return response, nil
-		case strings.HasPrefix(str, errorPrefix):
-			return nil, errors.New(strings.TrimPrefix(str, errorPrefix))
-		default:
-			response = append(response, str)
-		}
+	rb := bufio.NewReader(r)
+	line, _, err := rb.ReadLine()
+	if err != nil {
+		return fmt.Errorf("Cannot read from connection: %s", err)
 	}
-
-	return response, nil
+	str := string(line)
+	switch {
+	case strings.HasPrefix(str, "ERROR"):
+		return fmt.Errorf("Response error: %s", strings.TrimPrefix(str, "ERROR "))
+	case str == "OK":
+		return nil
+	case str == "DATA":
+		return dataFormatter(rb)
+	default:
+		return fmt.Errorf("Invalid response format")
+	}
 }
