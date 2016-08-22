@@ -1,6 +1,8 @@
 package multi
 
 import (
+	"time"
+
 	"github.com/Barberrrry/jcache/server/storage/memory"
 	. "gopkg.in/check.v1"
 )
@@ -11,7 +13,8 @@ var _ = Suite(&MultiStorageTestSuite{})
 
 func (s *MultiStorageTestSuite) TestKeys(c *C) {
 	storage := NewStorage()
-	storage.AddStorage(memory.NewStorage())
+	ms, _ := memory.NewStorage(100, time.Minute)
+	storage.AddStorage(ms)
 
 	storage.Set("key0", "value0", 0)
 	storage.Set("key1", "value1", 0)
@@ -40,7 +43,8 @@ func (s *MultiStorageTestSuite) TestKeys(c *C) {
 
 func (s *MultiStorageTestSuite) TestSetAndGet(c *C) {
 	storage := NewStorage()
-	storage.AddStorage(memory.NewStorage())
+	ms, _ := memory.NewStorage(100, time.Minute)
+	storage.AddStorage(ms)
 
 	// Get non-existing key value and get error
 	value1, err1 := storage.Get("key")
