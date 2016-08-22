@@ -4,6 +4,10 @@ import (
 	"io"
 )
 
+type Request interface {
+	Command() string
+}
+
 type Encoder interface {
 	Encode() ([]byte, error)
 }
@@ -16,6 +20,11 @@ type Decoder interface {
 
 func NewAuthRequest() *authRequest {
 	return &authRequest{request: newRequest("AUTH")}
+}
+
+func NewKeysRequest() *request {
+	r := newRequest("KEYS")
+	return &r
 }
 
 func NewGetRequest() *keyRequest {
@@ -34,13 +43,8 @@ func NewUpdRequest() *keyValueRequest {
 	return newKeyValueRequest("UPD")
 }
 
-func NewKeysRequest() *request {
-	r := newRequest("KEYS")
-	return &r
-}
-
 func NewHashCreateRequest() *keyTTLRequest {
-	return &keyTTLRequest{keyRequest: newKeyRequest("HCREATE")}
+	return newKeyTTLRequest("HCREATE")
 }
 
 func NewHashGetRequest() *keyFieldRequest {
@@ -68,7 +72,7 @@ func NewHashLenRequest() *keyRequest {
 }
 
 func NewListCreateRequest() *keyTTLRequest {
-	return &keyTTLRequest{keyRequest: newKeyRequest("LCREATE")}
+	return newKeyTTLRequest("LCREATE")
 }
 
 func NewListLenRequest() *keyRequest {
@@ -97,26 +101,86 @@ func NewListRangeRequest() *listRangeRequest {
 
 // Responses
 
-func NewOkResponse() *okResponse {
+func NewAuthResponse() *okResponse {
 	return &okResponse{}
-}
-
-func NewValueResponse() *valueResponse {
-	return &valueResponse{}
-}
-
-func NewValuesResponse() *valuesResponse {
-	return &valuesResponse{}
 }
 
 func NewKeysResponse() *keysResponse {
 	return &keysResponse{}
 }
 
-func NewLenResponse() *lenResponse {
+func NewGetResponse() *valueResponse {
+	return &valueResponse{}
+}
+
+func NewSetResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewDelResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewUpdResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewHashCreateResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewHashGetResponse() *valueResponse {
+	return &valueResponse{}
+}
+
+func NewHashSetResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewHashDelResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewHashGetAllResponse() *fieldsResponse {
+	return &fieldsResponse{}
+}
+
+func NewHashKeysResponse() *keysResponse {
+	return &keysResponse{}
+}
+
+func NewHashLenResponse() *lenResponse {
 	return &lenResponse{}
 }
 
-func NewFieldsResponse() *fieldsResponse {
-	return &fieldsResponse{}
+func NewListCreateResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewListRightPushResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewListLeftPushResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewListRightPopResponse() *valueResponse {
+	return &valueResponse{}
+}
+
+func NewListLeftPopResponse() *valueResponse {
+	return &valueResponse{}
+}
+
+func NewListLenResponse() *lenResponse {
+	return &lenResponse{}
+}
+
+func NewListRangeResponse() *valuesResponse {
+	return &valuesResponse{}
+}
+
+func NewErrorResponse(err error) *okResponse {
+	return &okResponse{response: response{Error: err}}
 }

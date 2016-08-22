@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/Barberrrry/jcache/protocol"
 	"github.com/Barberrrry/jcache/server/htpasswd"
 	"github.com/Barberrrry/jcache/server/storage"
 )
@@ -18,25 +19,25 @@ func New(storage storage.Storage, htpasswdPath string) *server {
 	s := &server{
 		storage: storage,
 		commands: map[string]command{
-			"KEYS":    newKeysCommand(storage),
-			"GET":     newGetCommand(storage),
-			"SET":     newSetCommand(storage),
-			"DEL":     newDelCommand(storage),
-			"UPD":     newUpdCommand(storage),
-			"HCREATE": newHashCreateCommand(storage),
-			"HGETALL": newHashGetAllCommand(storage),
-			"HGET":    newHashGetCommand(storage),
-			"HSET":    newHashSetCommand(storage),
-			"HDEL":    newHashDelCommand(storage),
-			"HLEN":    newHashLenCommand(storage),
-			"HKEYS":   newHashKeysCommand(storage),
-			"LCREATE": newListCreateCommand(storage),
-			"LLPOP":   newListLeftPopCommand(storage),
-			"LRPOP":   newListRightPopCommand(storage),
-			"LLPUSH":  newListLeftPushCommand(storage),
-			"LRPUSH":  newListRightPushCommand(storage),
-			"LLEN":    newListLenCommand(storage),
-			"LRANGE":  newListRangeCommand(storage),
+			protocol.NewKeysRequest().Command():          newKeysCommand(storage),
+			protocol.NewGetRequest().Command():           newGetCommand(storage),
+			protocol.NewSetRequest().Command():           newSetCommand(storage),
+			protocol.NewDelRequest().Command():           newDelCommand(storage),
+			protocol.NewUpdRequest().Command():           newUpdCommand(storage),
+			protocol.NewHashCreateRequest().Command():    newHashCreateCommand(storage),
+			protocol.NewHashGetAllRequest().Command():    newHashGetAllCommand(storage),
+			protocol.NewHashGetRequest().Command():       newHashGetCommand(storage),
+			protocol.NewHashSetRequest().Command():       newHashSetCommand(storage),
+			protocol.NewHashDelRequest().Command():       newHashDelCommand(storage),
+			protocol.NewHashLenRequest().Command():       newHashLenCommand(storage),
+			protocol.NewHashKeysRequest().Command():      newHashKeysCommand(storage),
+			protocol.NewListCreateRequest().Command():    newListCreateCommand(storage),
+			protocol.NewListLeftPopRequest().Command():   newListLeftPopCommand(storage),
+			protocol.NewListRightPopRequest().Command():  newListRightPopCommand(storage),
+			protocol.NewListLeftPushRequest().Command():  newListLeftPushCommand(storage),
+			protocol.NewListRightPushRequest().Command(): newListRightPushCommand(storage),
+			protocol.NewListLenRequest().Command():       newListLenCommand(storage),
+			protocol.NewListRangeRequest().Command():     newListRangeCommand(storage),
 		},
 	}
 

@@ -8,29 +8,32 @@ import (
 	"log"
 	"strings"
 
+	"github.com/Barberrrry/jcache/protocol"
 	"github.com/Barberrrry/jcache/server/htpasswd"
 )
 
 type session struct {
-	id             string
-	rw             io.ReadWriter
-	commands       map[string]command
-	authCommand    command
-	isAuthRequired bool
-	isAuthorized   bool
+	id              string
+	rw              io.ReadWriter
+	serverCommands  map[string]command
+	sessionCommands map[string]command
+	isAuthRequired  bool
+	isAuthorized    bool
 }
 
 func newSession(id string, rw io.ReadWriter, commands map[string]command, htpasswdFile *htpasswd.HtpasswdFile) *session {
 	s := &session{
-		id:       id,
-		rw:       rw,
-		commands: commands,
+		id:             id,
+		rw:             rw,
+		serverCommands: commands,
 	}
 
 	if htpasswdFile != nil {
 		s.isAuthRequired = true
 	}
-	s.authCommand = newAuthCommand(htpasswdFile, s)
+	s.sessionCommands = map[string]command{
+		protocol.NewAuthRequest().Command(): newAuthCommand(htpasswdFile, s),
+	}
 
 	return s
 }
@@ -48,22 +51,23 @@ func (s *session) start() {
 		if len(line) > 0 {
 			parts := strings.SplitN(string(line), " ", 2)
 
-			if parts[0] == "AUTH" {
+			if command, found := s.sessionCommands[parts[0]]; found {
 				s.log(fmt.Sprintf("run %s", parts[0]))
-				s.rw.Write(s.authCommand(line, rb))
+				s.rw.Write(command(line, rb))
 				continue
 			}
 
-			if command, found := s.commands[parts[0]]; found {
+			if command, found := s.serverCommands[parts[0]]; found {
 				if s.isAuthRequired && !s.isAuthorized {
 					s.rw.Write(formatError(errors.New("Need authentitication")))
 					continue
 				}
 				s.log(fmt.Sprintf("run %s", parts[0]))
 				s.rw.Write(command(line, rb))
-			} else {
-				s.rw.Write(formatError(errors.New("Unknown command")))
+				continue
 			}
+
+			s.rw.Write(formatError(errors.New("Unknown command")))
 		}
 	}
 	s.log("close session")

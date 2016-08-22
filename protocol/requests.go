@@ -16,7 +16,6 @@ var (
 	invalidCommandFormatError = fmt.Errorf("Invalid command format")
 
 	keyRegexp = regexp.MustCompile(keyTemplate)
-	intRegexp = regexp.MustCompile(intTemplate)
 
 	requestHeaderRegexp          = regexp.MustCompile("^([A-Z]+)$")
 	keyRequestHeaderRegexp       = regexp.MustCompile(fmt.Sprintf("^([A-Z]+) (%s)$", keyTemplate))
@@ -28,6 +27,10 @@ var (
 
 type request struct {
 	command string
+}
+
+func (r request) Command() string {
+	return r.command
 }
 
 func (r request) checkCommand(command string) error {
@@ -159,6 +162,10 @@ func (r *keyTTLRequest) Encode() ([]byte, error) {
 type keyValueRequest struct {
 	*keyRequest
 	Value string
+}
+
+func newKeyTTLRequest(command string) *keyTTLRequest {
+	return &keyTTLRequest{keyRequest: newKeyRequest(command)}
 }
 
 func (r *keyValueRequest) Decode(header []byte, data io.Reader) error {

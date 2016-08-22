@@ -12,8 +12,7 @@ import (
 type command func(header []byte, data io.Reader) []byte
 
 func formatError(err error) []byte {
-	response := protocol.NewOkResponse()
-	response.Error = err
+	response := protocol.NewErrorResponse(err)
 	data, _ := response.Encode()
 	return data
 }
@@ -42,7 +41,7 @@ func newKeysCommand(storage storage.Storage) command {
 func newGetCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewGetRequest()
-		response := protocol.NewValueResponse()
+		response := protocol.NewGetResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -63,7 +62,7 @@ func newGetCommand(storage storage.Storage) command {
 func newSetCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewSetRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewSetResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -84,7 +83,7 @@ func newSetCommand(storage storage.Storage) command {
 func newUpdCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewUpdRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewUpdResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -105,7 +104,7 @@ func newUpdCommand(storage storage.Storage) command {
 func newDelCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewDelRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewDelResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -126,7 +125,7 @@ func newDelCommand(storage storage.Storage) command {
 func newHashCreateCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashCreateRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewHashCreateResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -147,7 +146,7 @@ func newHashCreateCommand(storage storage.Storage) command {
 func newHashGetAllCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashGetAllRequest()
-		response := protocol.NewFieldsResponse()
+		response := protocol.NewHashGetAllResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -168,7 +167,7 @@ func newHashGetAllCommand(storage storage.Storage) command {
 func newHashGetCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashGetRequest()
-		response := protocol.NewValueResponse()
+		response := protocol.NewHashGetResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -189,7 +188,7 @@ func newHashGetCommand(storage storage.Storage) command {
 func newHashSetCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashSetRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewHashSetResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -210,7 +209,7 @@ func newHashSetCommand(storage storage.Storage) command {
 func newHashDelCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashDelRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewHashDelResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -231,7 +230,7 @@ func newHashDelCommand(storage storage.Storage) command {
 func newHashLenCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashLenRequest()
-		response := protocol.NewLenResponse()
+		response := protocol.NewHashLenResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -252,7 +251,7 @@ func newHashLenCommand(storage storage.Storage) command {
 func newHashKeysCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewHashKeysRequest()
-		response := protocol.NewKeysResponse()
+		response := protocol.NewHashKeysResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -273,7 +272,7 @@ func newHashKeysCommand(storage storage.Storage) command {
 func newListCreateCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListCreateRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewListCreateResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -294,7 +293,7 @@ func newListCreateCommand(storage storage.Storage) command {
 func newListLeftPopCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListLeftPopRequest()
-		response := protocol.NewValueResponse()
+		response := protocol.NewListLeftPopResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -315,7 +314,7 @@ func newListLeftPopCommand(storage storage.Storage) command {
 func newListRightPopCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListRightPopRequest()
-		response := protocol.NewValueResponse()
+		response := protocol.NewListRightPopResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -336,7 +335,7 @@ func newListRightPopCommand(storage storage.Storage) command {
 func newListLeftPushCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListLeftPushRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewListLeftPushResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -357,7 +356,7 @@ func newListLeftPushCommand(storage storage.Storage) command {
 func newListRightPushCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListRightPushRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewListRightPushResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -378,7 +377,7 @@ func newListRightPushCommand(storage storage.Storage) command {
 func newListLenCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListLenRequest()
-		response := protocol.NewLenResponse()
+		response := protocol.NewListLenResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -399,7 +398,7 @@ func newListLenCommand(storage storage.Storage) command {
 func newListRangeCommand(storage storage.Storage) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewListRangeRequest()
-		response := protocol.NewValuesResponse()
+		response := protocol.NewListRangeResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {
@@ -420,7 +419,7 @@ func newListRangeCommand(storage storage.Storage) command {
 func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) command {
 	return func(header []byte, data io.Reader) []byte {
 		request := protocol.NewAuthRequest()
-		response := protocol.NewOkResponse()
+		response := protocol.NewAuthResponse()
 
 		err := request.Decode(header, data)
 		if err != nil {

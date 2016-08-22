@@ -52,7 +52,7 @@ func (c *Client) Keys() ([]string, error) {
 func (c *Client) Get(key string) (string, error) {
 	request := protocol.NewGetRequest()
 	request.Key = key
-	response := protocol.NewValueResponse()
+	response := protocol.NewGetResponse()
 	if err := c.call(request, response); err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func (c *Client) Set(key, value string, ttl uint64) error {
 	request.Key = key
 	request.Value = value
 	request.TTL = ttl
-	response := protocol.NewOkResponse()
+	response := protocol.NewSetResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (c *Client) Update(key, value string) error {
 	request := protocol.NewUpdRequest()
 	request.Key = key
 	request.Value = value
-	response := protocol.NewOkResponse()
+	response := protocol.NewUpdResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (c *Client) Update(key, value string) error {
 func (c *Client) Delete(key string) error {
 	request := protocol.NewDelRequest()
 	request.Key = key
-	response := protocol.NewOkResponse()
+	response := protocol.NewDelResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (c *Client) HashCreate(key string, ttl uint64) error {
 	request := protocol.NewHashCreateRequest()
 	request.Key = key
 	request.TTL = ttl
-	response := protocol.NewOkResponse()
+	response := protocol.NewHashCreateResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (c *Client) HashSet(key, field, value string) error {
 	request.Key = key
 	request.Field = field
 	request.Value = value
-	response := protocol.NewOkResponse()
+	response := protocol.NewHashSetResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (c *Client) HashGet(key, field string) (string, error) {
 	request := protocol.NewHashGetRequest()
 	request.Key = key
 	request.Field = field
-	response := protocol.NewValueResponse()
+	response := protocol.NewHashGetResponse()
 	if err := c.call(request, response); err != nil {
 		return "", err
 	}
@@ -143,7 +143,7 @@ func (c *Client) HashGet(key, field string) (string, error) {
 func (c *Client) HashGetAll(key string) (map[string]string, error) {
 	request := protocol.NewHashGetAllRequest()
 	request.Key = key
-	response := protocol.NewFieldsResponse()
+	response := protocol.NewHashGetAllResponse()
 	if err := c.call(request, response); err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (c *Client) HashDelete(key, field string) error {
 	request := protocol.NewHashDelRequest()
 	request.Key = key
 	request.Field = field
-	response := protocol.NewOkResponse()
+	response := protocol.NewHashDelResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (c *Client) HashDelete(key, field string) error {
 func (c *Client) HashKeys(key string) ([]string, error) {
 	request := protocol.NewHashKeysRequest()
 	request.Key = key
-	response := protocol.NewKeysResponse()
+	response := protocol.NewHashKeysResponse()
 	if err := c.call(request, response); err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (c *Client) HashKeys(key string) ([]string, error) {
 func (c *Client) HashLength(key string) (int, error) {
 	request := protocol.NewHashLenRequest()
 	request.Key = key
-	response := protocol.NewLenResponse()
+	response := protocol.NewHashLenResponse()
 	if err := c.call(request, response); err != nil {
 		return 0, err
 	}
@@ -193,7 +193,7 @@ func (c *Client) ListCreate(key string, ttl uint64) error {
 	request := protocol.NewListCreateRequest()
 	request.Key = key
 	request.TTL = ttl
-	response := protocol.NewOkResponse()
+	response := protocol.NewListCreateResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (c *Client) ListRightPush(key, value string) error {
 	request := protocol.NewListRightPushRequest()
 	request.Key = key
 	request.Value = value
-	response := protocol.NewOkResponse()
+	response := protocol.NewListRightPushResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func (c *Client) ListLeftPush(key, value string) error {
 	request := protocol.NewListLeftPushRequest()
 	request.Key = key
 	request.Value = value
-	response := protocol.NewOkResponse()
+	response := protocol.NewListLeftPushResponse()
 	if err := c.call(request, response); err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func (c *Client) ListLeftPush(key, value string) error {
 func (c *Client) ListRightPop(key string) (string, error) {
 	request := protocol.NewListRightPopRequest()
 	request.Key = key
-	response := protocol.NewValueResponse()
+	response := protocol.NewListRightPopResponse()
 	if err := c.call(request, response); err != nil {
 		return "", err
 	}
@@ -243,7 +243,7 @@ func (c *Client) ListRightPop(key string) (string, error) {
 func (c *Client) ListLeftPop(key string) (string, error) {
 	request := protocol.NewListLeftPopRequest()
 	request.Key = key
-	response := protocol.NewValueResponse()
+	response := protocol.NewListLeftPopResponse()
 	if err := c.call(request, response); err != nil {
 		return "", err
 	}
@@ -255,7 +255,7 @@ func (c *Client) ListLeftPop(key string) (string, error) {
 func (c *Client) ListLength(key string) (int, error) {
 	request := protocol.NewListLenRequest()
 	request.Key = key
-	response := protocol.NewLenResponse()
+	response := protocol.NewListLenResponse()
 	if err := c.call(request, response); err != nil {
 		return 0, err
 	}
@@ -269,7 +269,7 @@ func (c *Client) ListRange(key string, start, stop int) ([]string, error) {
 	request.Key = key
 	request.Start = start
 	request.Stop = stop
-	response := protocol.NewValuesResponse()
+	response := protocol.NewListRangeResponse()
 	if err := c.call(request, response); err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (c *Client) connFactory() (net.Conn, error) {
 	request := protocol.NewAuthRequest()
 	request.User = c.user
 	request.Password = c.password
-	response := protocol.NewOkResponse()
+	response := protocol.NewAuthResponse()
 
 	err = c.callRW(conn, request, response)
 	if err != nil {
