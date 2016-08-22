@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"time"
 
 	"github.com/Barberrrry/jcache/server"
 	"github.com/Barberrrry/jcache/server/storage"
@@ -19,6 +20,7 @@ func main() {
 	flag.Var(&storageType, "storage_type", "Type of storage (memory, multi_memory)")
 	storageMultiMemoryCount := flag.Uint("storage_multi_memory_count", 1, "Number of storages inside multi memory storage")
 	storageBoltDbPath := flag.String("storage_boltdb_path", "", "Path to BoltDB file")
+	storageGCInterval := flag.Duration("storage_gc_interval", time.Minute, "Storage GC interval")
 	flag.Parse()
 
 	var storage storage.Storage
@@ -27,17 +29,17 @@ func main() {
 
 	switch storageType {
 	case server.StorageMemory:
-		storage = memory.NewStorage()
+		storage = memory.NewStorage(*storageGCInterval)
 	case server.StorageMultiMemory:
 		ms := multi.NewStorage()
 		for i := uint(0); i < *storageMultiMemoryCount; i++ {
-			ms.AddStorage(memory.NewStorage())
+			ms.AddStorage(memory.NewStorage(*storageGCInterval))
 		}
 		storage = ms
 
 	case server.StorageBoltDB:
 		var err error
-		storage, err = boltdb.NewStorage(*storageBoltDbPath)
+		storage, err = boltdb.NewStorage(*storageBoltDbPath, *storageGCInterval)
 		if err != nil {
 			log.Fatalln(err)
 		}

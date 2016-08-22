@@ -5,28 +5,51 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	commonStorage "github.com/Barberrrry/jcache/server/storage"
 )
 
 type storage struct {
 	items map[string]*commonStorage.Item
-	mu    sync.Mutex
+	mu    sync.RWMutex
 }
 
 // NewStorage creates new memory storage
-func NewStorage() *storage {
-	return &storage{
+func NewStorage(gcInterval time.Duration) *storage {
+	s := &storage{
 		items: make(map[string]*commonStorage.Item),
+	}
+
+	go s.gc(gcInterval)
+
+	return s
+}
+
+func (s *storage) gc(interval time.Duration) {
+	for _ = range time.Tick(interval) {
+		deleteKeys := []string{}
+		s.mu.RLock()
+		for key, item := range s.items {
+			if !item.IsAlive() {
+				deleteKeys = append(deleteKeys, key)
+			}
+		}
+		s.mu.RUnlock()
+
+		if len(deleteKeys) > 0 {
+			for _, key := range deleteKeys {
+				s.mu.Lock()
+				delete(s.items, key)
+				s.mu.Unlock()
+			}
+		}
 	}
 }
 
 func (s *storage) getItem(key string) (*commonStorage.Item, error) {
-	if item, found := s.items[key]; found {
-		if item.IsAlive() {
-			return item, nil
-		}
-		delete(s.items, key)
+	if item, found := s.items[key]; found && item.IsAlive() {
+		return item, nil
 	}
 	return nil, fmt.Errorf(`Key "%s" does not exist`, key)
 }
@@ -57,8 +80,8 @@ func (s *storage) getList(key string) (*list.List, error) {
 
 // Keys returns list of all keys
 func (s *storage) Keys() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	keys := make([]string, 0, len(s.items))
 	for key, item := range s.items {
@@ -72,8 +95,8 @@ func (s *storage) Keys() []string {
 
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	item, err := s.getItem(key)
 	if err != nil {
@@ -140,8 +163,8 @@ func (s *storage) HashCreate(key string, ttl uint64) error {
 // HashGet returns value of specified field of key.
 // Error will occur if key or field doesn't exist or key type is not hash.
 func (s *storage) HashGet(key, field string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	hash, err := s.getHash(key)
 	if err != nil {
@@ -152,8 +175,8 @@ func (s *storage) HashGet(key, field string) (string, error) {
 
 // HashGetAll returns all hash values of specified key. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashGetAll(key string) (map[string]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	return s.getHash(key)
 }
@@ -190,8 +213,8 @@ func (s *storage) HashDelete(key, field string) error {
 
 // HashLen returns count of hash fields. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashLen(key string) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	hash, err := s.getHash(key)
 	if err != nil {
@@ -203,8 +226,8 @@ func (s *storage) HashLen(key string) (int, error) {
 
 // HashKeys returns list of all hash fields. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashKeys(key string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	hash, err := s.getHash(key)
 	if err != nil {
@@ -298,8 +321,8 @@ func (s *storage) ListRightPush(key, value string) error {
 
 // ListLen returns count of elements in the list. Error will occur if key doesn't exist or key type is not list.
 func (s *storage) ListLen(key string) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	list, err := s.getList(key)
 	if err != nil {
@@ -312,8 +335,8 @@ func (s *storage) ListLen(key string) (int, error) {
 // ListRange returns list of elements from the list from start to stop index.
 // Error will occur if key doesn't exist or key type is not list.
 func (s *storage) ListRange(key string, start, stop int) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	list, err := s.getList(key)
 	if err != nil {

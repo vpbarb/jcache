@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	commonStorage "github.com/Barberrrry/jcache/server/storage"
 	"github.com/boltdb/bolt"
 )
 
 var (
-	bucketName        = []byte("bucket")
+	defaultBucketName = []byte("default")
 	notSupportedError = errors.New("Operation is not supported by BoltDB storage")
 )
 
@@ -29,20 +30,58 @@ func init() {
 	gob.Register(commonStorage.Hash{})
 }
 
-func NewStorage(filePath string) (*storage, error) {
+func NewStorage(filePath string, gcInterval time.Duration) (*storage, error) {
 	db, err := bolt.Open(filePath, 0644, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot open Bolt file: %s", err)
 	}
+	err = db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(defaultBucketName)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Cannot create bucket: %s", err)
+	}
 
-	return &storage{db: db}, nil
+	s := &storage{db: db}
+	go s.gc(gcInterval)
+
+	return s, nil
 }
 
-func (s *storage) getItem(tx *bolt.Tx, key string) (*commonStorage.Item, error) {
-	bucket, err := tx.CreateBucketIfNotExists(bucketName)
-	if err != nil {
-		return nil, err
+func (s *storage) gc(interval time.Duration) {
+	for _ = range time.Tick(interval) {
+		deleteKeys := [][]byte{}
+		err := s.db.View(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket(defaultBucketName)
+			cursor := bucket.Cursor()
+			for key, value := cursor.First(); key != nil; key, value = cursor.Next() {
+				dec := gob.NewDecoder(bytes.NewBuffer(value))
+				item := &commonStorage.Item{}
+				err := dec.Decode(item)
+				if err != nil {
+					return err
+				}
+
+				if !item.IsAlive() {
+					deleteKeys = append(deleteKeys, key)
+				}
+			}
+			return nil
+		})
+		if err == nil && len(deleteKeys) > 0 {
+			s.db.Update(func(tx *bolt.Tx) error {
+				bucket := tx.Bucket(defaultBucketName)
+				for _, key := range deleteKeys {
+					bucket.Delete(key)
+				}
+				return nil
+			})
+		}
 	}
+}
+
+func (s *storage) getItem(bucket *bolt.Bucket, key string) (*commonStorage.Item, error) {
 	data := bucket.Get([]byte(key))
 	if data == nil {
 		return nil, fmt.Errorf(`Key "%s" does not exist`, key)
@@ -50,7 +89,7 @@ func (s *storage) getItem(tx *bolt.Tx, key string) (*commonStorage.Item, error) 
 
 	dec := gob.NewDecoder(bytes.NewBuffer(data))
 	var item commonStorage.Item
-	err = dec.Decode(&item)
+	err := dec.Decode(&item)
 	if err != nil {
 		return nil, err
 	}
@@ -58,19 +97,15 @@ func (s *storage) getItem(tx *bolt.Tx, key string) (*commonStorage.Item, error) 
 	if item.IsAlive() {
 		return &item, nil
 	} else {
-		bucket.Delete([]byte(key))
+		//bucket.Delete([]byte(key))
 		return nil, fmt.Errorf(`Key "%s" does not exist`, key)
 	}
 }
 
-func (s *storage) saveItem(tx *bolt.Tx, key string, item *commonStorage.Item) error {
-	bucket, err := tx.CreateBucketIfNotExists(bucketName)
-	if err != nil {
-		return err
-	}
+func (s *storage) saveItem(bucket *bolt.Bucket, key string, item *commonStorage.Item) error {
 	buf := &bytes.Buffer{}
 	enc := gob.NewEncoder(buf)
-	err = enc.Encode(item)
+	err := enc.Encode(item)
 	if err != nil {
 		return err
 	}
@@ -81,8 +116,8 @@ func (s *storage) saveItem(tx *bolt.Tx, key string, item *commonStorage.Item) er
 	return nil
 }
 
-func (s *storage) getHash(tx *bolt.Tx, key string) (commonStorage.Hash, error) {
-	item, err := s.getItem(tx, key)
+func (s *storage) getHash(bucket *bolt.Bucket, key string) (commonStorage.Hash, error) {
+	item, err := s.getItem(bucket, key)
 	if err != nil {
 		return nil, err
 	}
@@ -95,16 +130,13 @@ func (s *storage) getHash(tx *bolt.Tx, key string) (commonStorage.Hash, error) {
 
 // Keys returns list of all keys
 func (s *storage) Keys() (keys []string) {
-	s.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(bucketName)
-		if err != nil {
-			return err
-		}
+	s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(defaultBucketName)
 		cursor := bucket.Cursor()
 		for key, value := cursor.First(); key != nil; key, value = cursor.Next() {
 			dec := gob.NewDecoder(bytes.NewBuffer(value))
 			item := &commonStorage.Item{}
-			err = dec.Decode(item)
+			err := dec.Decode(item)
 			if err != nil {
 				return err
 			}
@@ -121,8 +153,9 @@ func (s *storage) Keys() (keys []string) {
 
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (value string, err error) {
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		item, err := s.getItem(tx, key)
+	err = s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(defaultBucketName)
+		item, err := s.getItem(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -136,38 +169,36 @@ func (s *storage) Get(key string) (value string, err error) {
 // Error will occur if key already exists.
 func (s *storage) Set(key, value string, ttl uint64) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		item, _ := s.getItem(tx, key)
+		bucket := tx.Bucket(defaultBucketName)
+		item, _ := s.getItem(bucket, key)
 		if item != nil {
 			return fmt.Errorf(`Key "%s" already exists`, key)
 		}
 
 		item = commonStorage.NewItem(value, ttl)
-		return s.saveItem(tx, key, item)
+		return s.saveItem(bucket, key, item)
 	})
 }
 
 // Update value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Update(key, value string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		item, err := s.getItem(tx, key)
+		bucket := tx.Bucket(defaultBucketName)
+		item, err := s.getItem(bucket, key)
 		if err != nil {
 			return err
 		}
 
 		item.Value = value
-		return s.saveItem(tx, key, item)
+		return s.saveItem(bucket, key, item)
 	})
 }
 
 // Delete specified key. Error will occur if key doesn't exist. It works for any key type.
 func (s *storage) Delete(key string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		_, err := s.getItem(tx, key)
-		if err != nil {
-			return err
-		}
-
-		bucket, err := tx.CreateBucketIfNotExists(bucketName)
+		bucket := tx.Bucket(defaultBucketName)
+		_, err := s.getItem(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -178,21 +209,23 @@ func (s *storage) Delete(key string) error {
 // HashCreate creates new hash with specified key and ttl. Use zero ttl if key should exist forever.
 func (s *storage) HashCreate(key string, ttl uint64) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		item, _ := s.getItem(tx, key)
+		bucket := tx.Bucket(defaultBucketName)
+		item, _ := s.getItem(bucket, key)
 		if item != nil {
 			return fmt.Errorf(`Key "%s" already exists`, key)
 		}
 
 		item = commonStorage.NewItem(make(commonStorage.Hash), ttl)
-		return s.saveItem(tx, key, item)
+		return s.saveItem(bucket, key, item)
 	})
 }
 
 // HashGet returns value of specified field of key.
 // Error will occur if key or field doesn't exist or key type is not hash.
 func (s *storage) HashGet(key, field string) (value string, err error) {
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		hash, err := s.getHash(tx, key)
+	err = s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(defaultBucketName)
+		hash, err := s.getHash(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -204,8 +237,9 @@ func (s *storage) HashGet(key, field string) (value string, err error) {
 
 // HashGetAll returns all hash values of specified key. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashGetAll(key string) (hash map[string]string, err error) {
-	err = s.db.Update(func(tx *bolt.Tx) (err error) {
-		hash, err = s.getHash(tx, key)
+	err = s.db.View(func(tx *bolt.Tx) (err error) {
+		bucket := tx.Bucket(defaultBucketName)
+		hash, err = s.getHash(bucket, key)
 		return err
 	})
 	return
@@ -214,7 +248,8 @@ func (s *storage) HashGetAll(key string) (hash map[string]string, err error) {
 // HashSet sets field value of specified key. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashSet(key, field, value string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		item, err := s.getItem(tx, key)
+		bucket := tx.Bucket(defaultBucketName)
+		item, err := s.getItem(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -224,14 +259,15 @@ func (s *storage) HashSet(key, field, value string) error {
 		}
 		hash[field] = value
 
-		return s.saveItem(tx, key, item)
+		return s.saveItem(bucket, key, item)
 	})
 }
 
 // HashDelete deletes field from hash. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashDelete(key, field string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
-		item, err := s.getItem(tx, key)
+		bucket := tx.Bucket(defaultBucketName)
+		item, err := s.getItem(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -244,14 +280,15 @@ func (s *storage) HashDelete(key, field string) error {
 			return err
 		}
 		delete(hash, field)
-		return s.saveItem(tx, key, item)
+		return s.saveItem(bucket, key, item)
 	})
 }
 
 // HashLen returns count of hash fields. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashLen(key string) (length int, err error) {
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		hash, err := s.getHash(tx, key)
+	err = s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(defaultBucketName)
+		hash, err := s.getHash(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -263,8 +300,9 @@ func (s *storage) HashLen(key string) (length int, err error) {
 
 // HashKeys returns list of all hash fields. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashKeys(key string) (keys []string, err error) {
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		hash, err := s.getHash(tx, key)
+	err = s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(defaultBucketName)
+		hash, err := s.getHash(bucket, key)
 		if err != nil {
 			return err
 		}
