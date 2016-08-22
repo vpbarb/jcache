@@ -59,7 +59,7 @@ func (s *session) start() {
 
 			if command, found := s.serverCommands[parts[0]]; found {
 				if s.isAuthRequired && !s.isAuthorized {
-					s.rw.Write(formatError(errors.New("Need authentitication")))
+					s.rw.Write(encodeError(errors.New("Need authentitication")))
 					continue
 				}
 				s.log(fmt.Sprintf("run %s", parts[0]))
@@ -67,7 +67,7 @@ func (s *session) start() {
 				continue
 			}
 
-			s.rw.Write(formatError(errors.New("Unknown command")))
+			s.rw.Write(encodeError(errors.New("Unknown command")))
 		}
 	}
 	s.log("close session")

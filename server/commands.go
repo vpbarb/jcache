@@ -11,7 +11,7 @@ import (
 
 type command func(header []byte, data io.Reader) []byte
 
-func formatError(err error) []byte {
+func encodeError(err error) []byte {
 	response := protocol.NewErrorResponse(err)
 	data, _ := response.Encode()
 	return data
@@ -20,14 +20,14 @@ func formatError(err error) []byte {
 func run(header []byte, data io.Reader, request protocol.Decoder, response protocol.Encoder, action func()) []byte {
 	err := request.Decode(header, data)
 	if err != nil {
-		return formatError(err)
+		return encodeError(err)
 	}
 
 	action()
 
 	result, err := response.Encode()
 	if err != nil {
-		return formatError(err)
+		return encodeError(err)
 	}
 
 	return result
