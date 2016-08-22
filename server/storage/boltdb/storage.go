@@ -119,19 +119,6 @@ func (s *storage) Keys() (keys []string) {
 	return
 }
 
-// TTL returns ttl of specified key. Error will occur if key doesn't exist.
-func (s *storage) TTL(key string) (ttl uint64, err error) {
-	err = s.db.Update(func(tx *bolt.Tx) error {
-		item, err := s.getItem(tx, key)
-		if err != nil {
-			return err
-		}
-		ttl = item.GetTTL()
-		return nil
-	})
-	return
-}
-
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (value string, err error) {
 	err = s.db.Update(func(tx *bolt.Tx) error {

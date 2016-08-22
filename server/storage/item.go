@@ -49,11 +49,3 @@ func (i *Item) CastList() (*list.List, error) {
 func (i *Item) IsAlive() bool {
 	return i.ExpireTime.IsZero() || i.ExpireTime.After(time.Now())
 }
-
-func (i *Item) GetTTL() uint64 {
-	if i.ExpireTime.IsZero() {
-		return uint64(0)
-	}
-	d := i.ExpireTime.Sub(time.Now())
-	return uint64(d.Seconds())
-}

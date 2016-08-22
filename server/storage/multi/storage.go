@@ -39,11 +39,6 @@ func (s *storage) Keys() []string {
 	return keys
 }
 
-// TTL returns ttl of specified key. Error will occur if key doesn't exist.
-func (s *storage) TTL(key string) (uint64, error) {
-	return s.getStorage(key).TTL(key)
-}
-
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (string, error) {
 	return s.getStorage(key).Get(key)

@@ -48,12 +48,6 @@ func testValueType(client *client.Client) {
 		log.Printf("Error: %s", err)
 	}
 
-	ttl, err := client.TTL(key)
-	log.Printf("TTL: %s = %d", key, ttl)
-	if err != nil {
-		log.Printf("Error: %s", err)
-	}
-
 	err = client.Update(key, "new_value1")
 	log.Printf("Set: %s = %s", key, "new_value1")
 	if err != nil {
@@ -106,12 +100,6 @@ func testHashType(client *client.Client) {
 
 	keys, err = client.Keys()
 	log.Printf("Keys: %v", keys)
-	if err != nil {
-		log.Printf("Error: %s", err)
-	}
-
-	ttl, err := client.TTL(key)
-	log.Printf("TTL: %s = %d", key, ttl)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
@@ -196,12 +184,6 @@ func testListType(client *client.Client) {
 
 	keys, err = client.Keys()
 	log.Printf("Keys: %v", keys)
-	if err != nil {
-		log.Printf("Error: %s", err)
-	}
-
-	ttl, err := client.TTL(key)
-	log.Printf("TTL: %s = %d", key, ttl)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}

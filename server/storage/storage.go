@@ -2,7 +2,6 @@ package storage
 
 type Storage interface {
 	Keys() []string
-	TTL(key string) (uint64, error)
 	Get(key string) (string, error)
 	Set(key, value string, ttl uint64) error
 	Update(key, value string) error

@@ -3,483 +3,441 @@ package server
 import (
 	"fmt"
 	"io"
-	"regexp"
-	"strconv"
 
 	"github.com/Barberrrry/jcache/protocol"
 	"github.com/Barberrrry/jcache/server/htpasswd"
 	"github.com/Barberrrry/jcache/server/storage"
 )
 
-const (
-	keyPattern = `([a-zA-Z0-9_]+)`
-	intPattern = `([0-9]+)`
+type command func(header []byte, data io.Reader) []byte
 
-	okTemplate        = "OK"
-	errorTemplate     = "ERROR %s"
-	dataTemplate      = "DATA"
-	endTemplate       = "END"
-	keyTemplate       = "KEY %s"
-	valueTemplate     = "VALUE %d"
-	hashFieldTemplate = "FIELD %s %d"
-	lenTemplate       = "LEN %d"
-	ttlTemplate       = "TTL %d"
-)
-
-var (
-	okResponse = []string{okTemplate}
-)
-
-type command struct {
-	format     *regexp.Regexp
-	run        func(params []string, data io.Reader) []string
-	allowGuest bool
-
-	process func(header []byte, data io.Reader) []byte
+func formatError(err error) []byte {
+	response := protocol.NewOkResponse()
+	response.Error = err
+	data, _ := response.Encode()
+	return data
 }
 
-func errorResponse(err interface{}) []string {
-	return []string{fmt.Sprintf(errorTemplate, err)}
-}
+func newKeysCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewKeysRequest()
+		response := protocol.NewKeysResponse()
 
-func valueResponse(value string) []string {
-	response := []string{dataTemplate}
-	response = append(response, valueLines(value)...)
-	response = append(response, endTemplate)
-	return response
-}
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
 
-func valueLines(value string) []string {
-	return []string{fmt.Sprintf(valueTemplate, len(value)), value}
-}
+		response.Keys = storage.Keys()
 
-func lengthResponse(length int) []string {
-	return []string{dataTemplate, fmt.Sprintf(lenTemplate, length), endTemplate}
-}
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
 
-func hashFieldLines(field, value string) []string {
-	return []string{
-		fmt.Sprintf(hashFieldTemplate, field, len(value)),
-		value,
+		return result
 	}
 }
 
-func parseValue(lengthParam string, data io.Reader) (string, error) {
-	length, err := strconv.Atoi(lengthParam)
-	if err != nil {
-		return "", err
-	}
-	value := make([]byte, length, length)
-	n, err := data.Read(value)
-	if err != nil || n != length {
-		return "", err
-	}
-	return string(value), nil
-}
+func newGetCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewGetRequest()
+		response := protocol.NewValueResponse()
 
-func parseTTL(ttlParam string) (uint64, error) {
-	return strconv.ParseUint(ttlParam, 10, 0)
-}
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
 
-func newKeysCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile("^$"),
-		run: func(params []string, data io.Reader) []string {
-			keys := storage.Keys()
-			response := []string{dataTemplate}
-			for _, key := range keys {
-				response = append(response, fmt.Sprintf(keyTemplate, key))
-			}
-			response = append(response, endTemplate)
-			return response
-		},
+		response.Value, response.Error = storage.Get(request.Key)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newTTLCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			ttl, err := storage.TTL(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return []string{dataTemplate, fmt.Sprintf(ttlTemplate, ttl), endTemplate}
-		},
+func newSetCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewSetRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.Set(request.Key, request.Value, request.TTL)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newGetCommand(storage storage.Storage) *command {
-	return &command{
-		process: func(header []byte, data io.Reader) []byte {
-			request := protocol.NewGetRequest("")
-			err := request.Decode(header, data)
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+func newUpdCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewUpdRequest()
+		response := protocol.NewOkResponse()
 
-			value, err := storage.Get(request.Key)
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
 
-			response := protocol.NewValueResponse(value, err)
-			result, err := response.Encode()
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+		response.Error = storage.Update(request.Key, request.Value)
 
-			return result
-		},
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
 
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := storage.Get(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return valueResponse(value)
-		},
+		return result
 	}
 }
 
-func newSetCommand(storage storage.Storage) *command {
-	return &command{
-		process: func(header []byte, data io.Reader) []byte {
-			request := protocol.NewSetRequest("", "", 0)
-			err := request.Decode(header, data)
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+func newDelCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewDelRequest()
+		response := protocol.NewOkResponse()
 
-			err = storage.Set(request.Key, request.Value, request.TTL)
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
 
-			response := protocol.NewEmptyResponse(err)
-			result, err := response.Encode()
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+		response.Error = storage.Delete(request.Key)
 
-			return result
-		},
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
 
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			ttl, err := parseTTL(params[1])
-			if err != nil {
-				return errorResponse(err)
-			}
-			value, err := parseValue(params[2], data)
-			if err != nil {
-				return errorResponse(err)
-			}
-			if err := storage.Set(params[0], value, ttl); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+		return result
 	}
 }
 
-func newUpdCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := parseValue(params[1], data)
-			if err != nil {
-				return errorResponse(err)
-			}
-			if err := storage.Update(params[0], value); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newHashCreateCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashCreateRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.HashCreate(request.Key, request.TTL)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newDelCommand(storage storage.Storage) *command {
-	return &command{
-		process: func(header []byte, data io.Reader) []byte {
-			request := protocol.NewDelRequest("")
-			err := request.Decode(header, data)
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+func newHashGetAllCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashGetAllRequest()
+		response := protocol.NewFieldsResponse()
 
-			err = storage.Delete(request.Key)
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
 
-			response := protocol.NewEmptyResponse(err)
-			result, err := response.Encode()
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+		response.Fields, response.Error = storage.HashGetAll(request.Key)
 
-			return result
-		},
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
 
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			if err := storage.Delete(params[0]); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+		return result
 	}
 }
 
-func newHashCreateCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			ttl, err := parseTTL(params[1])
-			if err != nil {
-				return errorResponse(err)
-			}
-			err = storage.HashCreate(params[0], ttl)
-			if err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newHashGetCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashGetRequest()
+		response := protocol.NewValueResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Value, response.Error = storage.HashGet(request.Key, request.Field)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newHashGetAllCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			hash, err := storage.HashGetAll(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			response := []string{dataTemplate}
-			for field, value := range hash {
-				response = append(response, hashFieldLines(field, value)...)
-			}
-			response = append(response, endTemplate)
-			return response
-		},
+func newHashSetCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashSetRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.HashSet(request.Key, request.Field, request.Value)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newHashGetCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := storage.HashGet(params[0], params[1])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return valueResponse(value)
-		},
+func newHashDelCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashDelRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.HashDelete(request.Key, request.Field)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newHashSetCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, keyPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := parseValue(params[2], data)
-			if err != nil {
-				return errorResponse(err)
-			}
-			if err := storage.HashSet(params[0], params[1], value); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newHashLenCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashLenRequest()
+		response := protocol.NewLenResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Len, response.Error = storage.HashLen(request.Key)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newHashDelCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			if err := storage.HashDelete(params[0], params[1]); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newHashKeysCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewHashKeysRequest()
+		response := protocol.NewKeysResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Keys, response.Error = storage.HashKeys(request.Key)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newHashLenCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			len, err := storage.HashLen(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return lengthResponse(len)
-		},
+func newListCreateCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListCreateRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.ListCreate(request.Key, request.TTL)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newHashKeysCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			keys, err := storage.HashKeys(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			response := []string{dataTemplate}
-			for _, key := range keys {
-				response = append(response, fmt.Sprintf(keyTemplate, key))
-			}
-			response = append(response, endTemplate)
-			return response
-		},
+func newListLeftPopCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListLeftPopRequest()
+		response := protocol.NewValueResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Value, response.Error = storage.ListLeftPop(request.Key)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newListCreateCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			ttl, err := parseTTL(params[1])
-			if err != nil {
-				return errorResponse(err)
-			}
-			err = storage.ListCreate(params[0], ttl)
-			if err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newListRightPopCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListRightPopRequest()
+		response := protocol.NewValueResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Value, response.Error = storage.ListRightPop(request.Key)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newListLeftPopCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := storage.ListLeftPop(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return valueResponse(value)
-		},
+func newListLeftPushCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListLeftPushRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.ListLeftPush(request.Key, request.Value)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newListRightPopCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := storage.ListRightPop(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return valueResponse(value)
-		},
+func newListRightPushCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListRightPushRequest()
+		response := protocol.NewOkResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Error = storage.ListRightPush(request.Key, request.Value)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newListLeftPushCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := parseValue(params[1], data)
-			if err != nil {
-				return errorResponse(err)
-			}
-			if err := storage.ListLeftPush(params[0], value); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newListLenCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListLenRequest()
+		response := protocol.NewLenResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Len, response.Error = storage.ListLen(request.Key)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newListRightPushCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s$", keyPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			value, err := parseValue(params[1], data)
-			if err != nil {
-				return errorResponse(err)
-			}
-			if err := storage.ListRightPush(params[0], value); err != nil {
-				return errorResponse(err)
-			}
-			return okResponse
-		},
+func newListRangeCommand(storage storage.Storage) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewListRangeRequest()
+		response := protocol.NewValuesResponse()
+
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
+
+		response.Values, response.Error = storage.ListRange(request.Key, request.Start, request.Stop)
+
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
+
+		return result
 	}
 }
 
-func newListLenCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s$", keyPattern)),
-		run: func(params []string, data io.Reader) []string {
-			len, err := storage.ListLen(params[0])
-			if err != nil {
-				return errorResponse(err)
-			}
-			return lengthResponse(len)
-		},
-	}
-}
+func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) command {
+	return func(header []byte, data io.Reader) []byte {
+		request := protocol.NewAuthRequest()
+		response := protocol.NewOkResponse()
 
-func newListRangeCommand(storage storage.Storage) *command {
-	return &command{
-		format: regexp.MustCompile(fmt.Sprintf("^%s %s %s$", keyPattern, intPattern, intPattern)),
-		run: func(params []string, data io.Reader) []string {
-			start, err := strconv.Atoi(params[1])
-			if err != nil {
-				return errorResponse(err)
-			}
-			stop, err := strconv.Atoi(params[2])
-			if err != nil {
-				return errorResponse(err)
-			}
+		err := request.Decode(header, data)
+		if err != nil {
+			return formatError(err)
+		}
 
-			values, err := storage.ListRange(params[0], start, stop)
-			if err != nil {
-				return errorResponse(err)
-			}
-			response := []string{dataTemplate}
-			for _, value := range values {
-				response = append(response, valueLines(value)...)
-			}
-			response = append(response, endTemplate)
-			return response
-		},
-	}
-}
+		if htpasswdFile == nil || htpasswdFile.Validate(request.User, request.Password) {
+			session.authorize()
+		} else {
+			response.Error = fmt.Errorf("Invalid credentials")
+		}
 
-func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) *command {
-	return &command{
-		allowGuest: true,
-		process: func(header []byte, data io.Reader) []byte {
-			request := protocol.NewAuthRequest("", "")
-			err := request.Decode(header, data)
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
+		result, err := response.Encode()
+		if err != nil {
+			return formatError(err)
+		}
 
-			var authErr error
-
-			if htpasswdFile == nil || htpasswdFile.Validate(request.User, request.Password) {
-				session.authorize()
-			} else {
-				authErr = fmt.Errorf("Invalid credentials")
-			}
-
-			response := protocol.NewEmptyResponse(authErr)
-			result, err := response.Encode()
-			if err != nil {
-				return []byte(fmt.Sprintf(errorTemplate, err))
-			}
-
-			return result
-		},
-
-		format: regexp.MustCompile("^([a-zA-Z0-9]+) (.+)$"),
-		run: func(params []string, data io.Reader) []string {
-			if htpasswdFile == nil || htpasswdFile.Validate(params[0], params[1]) {
-				session.authorize()
-				return okResponse
-			}
-			return errorResponse("INVALID CREDENTIALS")
-		},
+		return result
 	}
 }

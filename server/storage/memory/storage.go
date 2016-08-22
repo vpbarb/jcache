@@ -70,18 +70,6 @@ func (s *storage) Keys() []string {
 	return keys
 }
 
-// TTL returns ttl of specified key. Error will occur if key doesn't exist.
-func (s *storage) TTL(key string) (uint64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	item, err := s.getItem(key)
-	if err != nil {
-		return uint64(0), err
-	}
-	return item.GetTTL(), nil
-}
-
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (string, error) {
 	s.mu.Lock()

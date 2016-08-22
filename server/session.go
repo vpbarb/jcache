@@ -2,51 +2,25 @@ package server
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"strings"
 
 	"github.com/Barberrrry/jcache/server/htpasswd"
-	"github.com/Barberrrry/jcache/server/storage"
-)
-
-const (
-	lineSeparator = "\r\n"
 )
 
 type session struct {
 	id             string
 	rw             io.ReadWriter
-	commands       map[string]*command
+	commands       map[string]command
+	authCommand    command
 	isAuthRequired bool
 	isAuthorized   bool
 }
 
-func newSession(id string, rw io.ReadWriter, storage storage.Storage, htpasswdFile *htpasswd.HtpasswdFile) *session {
-	commands := map[string]*command{
-		//"KEYS":    newKeysCommand(storage),
-		//"TTL":     newTTLCommand(storage),
-		"GET": newGetCommand(storage),
-		"SET": newSetCommand(storage),
-		"DEL": newDelCommand(storage),
-		//"UPD":     newUpdCommand(storage),
-		//"HCREATE": newHashCreateCommand(storage),
-		//"HGETALL": newHashGetAllCommand(storage),
-		//"HGET":    newHashGetCommand(storage),
-		//"HSET":    newHashSetCommand(storage),
-		//"HDEL":    newHashDelCommand(storage),
-		//"HLEN":    newHashLenCommand(storage),
-		//"HKEYS":   newHashKeysCommand(storage),
-		//"LCREATE": newListCreateCommand(storage),
-		//"LLPOP":   newListLeftPopCommand(storage),
-		//"LRPOP":   newListRightPopCommand(storage),
-		//"LLPUSH":  newListLeftPushCommand(storage),
-		//"LRPUSH":  newListRightPushCommand(storage),
-		//"LLEN":    newListLenCommand(storage),
-		//"LRANGE":  newListRangeCommand(storage),
-	}
-
+func newSession(id string, rw io.ReadWriter, commands map[string]command, htpasswdFile *htpasswd.HtpasswdFile) *session {
 	s := &session{
 		id:       id,
 		rw:       rw,
@@ -56,7 +30,7 @@ func newSession(id string, rw io.ReadWriter, storage storage.Storage, htpasswdFi
 	if htpasswdFile != nil {
 		s.isAuthRequired = true
 	}
-	s.commands["AUTH"] = newAuthCommand(htpasswdFile, s)
+	s.authCommand = newAuthCommand(htpasswdFile, s)
 
 	return s
 }
@@ -73,41 +47,26 @@ func (s *session) start() {
 
 		if len(line) > 0 {
 			parts := strings.SplitN(string(line), " ", 2)
+
+			if parts[0] == "AUTH" {
+				s.log(fmt.Sprintf("run %s", parts[0]))
+				s.rw.Write(s.authCommand(line, rb))
+				continue
+			}
+
 			if command, found := s.commands[parts[0]]; found {
-				if s.isAuthRequired && !command.allowGuest && !s.isAuthorized {
-					s.writeResponse(errorResponse("NEED AUTHENTICATION"))
+				if s.isAuthRequired && !s.isAuthorized {
+					s.rw.Write(formatError(errors.New("Need authentitication")))
 					continue
 				}
-
-				s.rw.Write(command.process(line, rb))
-
-				//var arguments string
-				//if len(parts) > 1 {
-				//	arguments = parts[1]
-				//}
-				//matches := command.format.FindStringSubmatch(arguments)
-				//if len(matches) > 0 {
-				//	var params []string
-				//	if len(matches) > 1 {
-				//		params = matches[1:]
-				//	}
-				//	s.log(fmt.Sprintf("run %s", parts[0]))
-				//	s.writeResponse(command.run(params, rb))
-				//} else {
-				//	s.writeResponse(errorResponse("INVALID COMMAND FORMAT"))
-				//}
+				s.log(fmt.Sprintf("run %s", parts[0]))
+				s.rw.Write(command(line, rb))
 			} else {
-				s.writeResponse(errorResponse("UNKNOWN COMMAND"))
+				s.rw.Write(formatError(errors.New("Unknown command")))
 			}
 		}
 	}
 	s.log("close session")
-}
-
-func (s *session) writeResponse(response []string) {
-	for _, line := range response {
-		s.rw.Write([]byte(line + lineSeparator))
-	}
 }
 
 func (s *session) authorize() {

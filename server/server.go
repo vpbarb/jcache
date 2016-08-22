@@ -9,12 +9,36 @@ import (
 )
 
 type server struct {
+	commands     map[string]command
 	storage      storage.Storage
 	htpasswdFile *htpasswd.HtpasswdFile
 }
 
 func New(storage storage.Storage, htpasswdPath string) *server {
-	s := &server{storage: storage}
+	s := &server{
+		storage: storage,
+		commands: map[string]command{
+			"KEYS":    newKeysCommand(storage),
+			"GET":     newGetCommand(storage),
+			"SET":     newSetCommand(storage),
+			"DEL":     newDelCommand(storage),
+			"UPD":     newUpdCommand(storage),
+			"HCREATE": newHashCreateCommand(storage),
+			"HGETALL": newHashGetAllCommand(storage),
+			"HGET":    newHashGetCommand(storage),
+			"HSET":    newHashSetCommand(storage),
+			"HDEL":    newHashDelCommand(storage),
+			"HLEN":    newHashLenCommand(storage),
+			"HKEYS":   newHashKeysCommand(storage),
+			"LCREATE": newListCreateCommand(storage),
+			"LLPOP":   newListLeftPopCommand(storage),
+			"LRPOP":   newListRightPopCommand(storage),
+			"LLPUSH":  newListLeftPushCommand(storage),
+			"LRPUSH":  newListRightPushCommand(storage),
+			"LLEN":    newListLenCommand(storage),
+			"LRANGE":  newListRangeCommand(storage),
+		},
+	}
 
 	if htpasswdPath != "" {
 		var err error
@@ -39,6 +63,6 @@ func (s *server) ListenAndServe(addr string) {
 			continue
 		}
 
-		go newSession(conn.RemoteAddr().String(), conn, s.storage, s.htpasswdFile).start()
+		go newSession(conn.RemoteAddr().String(), conn, s.commands, s.htpasswdFile).start()
 	}
 }

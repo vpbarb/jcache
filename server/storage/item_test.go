@@ -23,7 +23,6 @@ func (s *ItemTestSuite) TestStringWithTTL(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(value, Equals, "value")
 
-	c.Assert(item.GetTTL() > 0, Equals, true)
 	c.Assert(item.IsAlive(), Equals, true)
 
 	_, err = item.CastHash()
@@ -37,7 +36,6 @@ func (s *ItemTestSuite) TestExpired(c *C) {
 
 	time.Sleep(time.Second)
 
-	c.Assert(item.GetTTL(), Equals, uint64(0))
 	c.Assert(item.IsAlive(), Equals, false)
 }
 
@@ -48,7 +46,6 @@ func (s *ItemTestSuite) TestHash(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(hash, DeepEquals, Hash{"field": "value"})
 
-	c.Assert(item.GetTTL(), Equals, uint64(0))
 	c.Assert(item.IsAlive(), Equals, true)
 
 	_, err = item.CastString()
@@ -65,7 +62,6 @@ func (s *ItemTestSuite) TestList(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(list, FitsTypeOf, list)
 
-	c.Assert(item.GetTTL(), Equals, uint64(0))
 	c.Assert(item.IsAlive(), Equals, true)
 
 	_, err = item.CastString()

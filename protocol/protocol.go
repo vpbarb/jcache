@@ -12,34 +12,111 @@ type Decoder interface {
 	Decode([]byte, io.Reader) error
 }
 
-func NewAuthRequest(user, password string) *authRequest {
-	return &authRequest{
-		request:  newRequest("AUTH"),
-		User:     user,
-		Password: password,
-	}
+// Requests
+
+func NewAuthRequest() *authRequest {
+	return &authRequest{request: newRequest("AUTH")}
 }
 
-func NewGetRequest(key string) *keyRequest {
-	return newKeyRequest("GET", key)
+func NewGetRequest() *keyRequest {
+	return newKeyRequest("GET")
 }
 
-func NewSetRequest(key, value string, ttl uint64) *setRequest {
-	return &setRequest{
-		keyRequest: newKeyRequest("SET", key),
-		Value:      value,
-		TTL:        ttl,
-	}
+func NewSetRequest() *setRequest {
+	return &setRequest{keyValueRequest: newKeyValueRequest("SET")}
 }
 
-func NewDelRequest(key string) *keyRequest {
-	return newKeyRequest("DEL", key)
+func NewDelRequest() *keyRequest {
+	return newKeyRequest("DEL")
 }
 
-func NewEmptyResponse(err error) *response {
-	return &response{Error: err}
+func NewUpdRequest() *keyValueRequest {
+	return newKeyValueRequest("UPD")
 }
 
-func NewValueResponse(value string, err error) *valueResponse {
-	return &valueResponse{response: response{Error: err}, Value: value}
+func NewKeysRequest() *request {
+	r := newRequest("KEYS")
+	return &r
+}
+
+func NewHashCreateRequest() *keyTTLRequest {
+	return &keyTTLRequest{keyRequest: newKeyRequest("HCREATE")}
+}
+
+func NewHashGetRequest() *keyFieldRequest {
+	return newKeyFieldRequest("HGET")
+}
+
+func NewHashSetRequest() *keyFieldValueRequest {
+	return &keyFieldValueRequest{keyFieldRequest: newKeyFieldRequest("HSET")}
+}
+
+func NewHashDelRequest() *keyFieldRequest {
+	return newKeyFieldRequest("HDEL")
+}
+
+func NewHashKeysRequest() *keyRequest {
+	return newKeyRequest("HKEYS")
+}
+
+func NewHashGetAllRequest() *keyRequest {
+	return newKeyRequest("HGETALL")
+}
+
+func NewHashLenRequest() *keyRequest {
+	return newKeyRequest("HLEN")
+}
+
+func NewListCreateRequest() *keyTTLRequest {
+	return &keyTTLRequest{keyRequest: newKeyRequest("LCREATE")}
+}
+
+func NewListLenRequest() *keyRequest {
+	return newKeyRequest("LLEN")
+}
+
+func NewListLeftPopRequest() *keyRequest {
+	return newKeyRequest("LLPOP")
+}
+
+func NewListRightPopRequest() *keyRequest {
+	return newKeyRequest("LRPOP")
+}
+
+func NewListLeftPushRequest() *keyValueRequest {
+	return newKeyValueRequest("LLPUSH")
+}
+
+func NewListRightPushRequest() *keyValueRequest {
+	return newKeyValueRequest("LRPUSH")
+}
+
+func NewListRangeRequest() *listRangeRequest {
+	return &listRangeRequest{keyRequest: newKeyRequest("LRANGE")}
+}
+
+// Responses
+
+func NewOkResponse() *okResponse {
+	return &okResponse{}
+}
+
+func NewValueResponse() *valueResponse {
+	return &valueResponse{}
+}
+
+func NewValuesResponse() *valuesResponse {
+	return &valuesResponse{}
+}
+
+func NewKeysResponse() *keysResponse {
+	return &keysResponse{}
+}
+
+func NewLenResponse() *lenResponse {
+	return &lenResponse{}
+}
+
+func NewFieldsResponse() *fieldsResponse {
+	return &fieldsResponse{}
 }
