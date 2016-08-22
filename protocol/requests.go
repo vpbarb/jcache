@@ -265,6 +265,10 @@ func (r *keyFieldValueRequest) Encode() ([]byte, error) {
 	return []byte(fmt.Sprintf("%s %s %s %d\r\n%s\r\n", r.command, r.Key, r.Field, len(r.Value), r.Value)), nil
 }
 
+func newKeyFieldValueRequest(command string) *keyFieldValueRequest {
+	return &keyFieldValueRequest{keyFieldRequest: newKeyFieldRequest(command)}
+}
+
 type setRequest struct {
 	*keyValueRequest
 	TTL uint64
@@ -342,8 +346,11 @@ func parseValue(lengthParam string, data io.Reader) (string, error) {
 
 	value := make([]byte, length, length)
 	n, err := data.Read(value)
-	if err != nil || n != length {
+	if err != nil {
 		return "", err
+	}
+	if n != length {
+		return "", fmt.Errorf("Value length is invalid")
 	}
 	return string(value), nil
 }

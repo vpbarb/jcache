@@ -52,7 +52,7 @@ func NewHashGetRequest() *keyFieldRequest {
 }
 
 func NewHashSetRequest() *keyFieldValueRequest {
-	return &keyFieldValueRequest{keyFieldRequest: newKeyFieldRequest("HSET")}
+	return newKeyFieldValueRequest("HSET")
 }
 
 func NewHashDelRequest() *keyFieldRequest {
