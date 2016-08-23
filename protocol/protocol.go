@@ -1,7 +1,9 @@
 package protocol
 
 import (
+	"bufio"
 	"io"
+	"strings"
 )
 
 type Request interface {
@@ -14,6 +16,16 @@ type Encoder interface {
 
 type Decoder interface {
 	Decode([]byte, io.Reader) error
+}
+
+func ReadRequestHeader(r io.Reader) ([]byte, string, error) {
+	rb := bufio.NewReader(r)
+	line, _, err := rb.ReadLine()
+	if err != nil {
+		return nil, "", err
+	}
+	parts := strings.SplitN(string(line), " ", 2)
+	return line, parts[0], nil
 }
 
 // Requests

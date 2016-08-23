@@ -1,12 +1,10 @@
 package server
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"strings"
 
 	"github.com/Barberrrry/jcache/protocol"
 	"github.com/Barberrrry/jcache/server/htpasswd"
@@ -40,35 +38,30 @@ func newSession(id string, rw io.ReadWriter, commands map[string]command, htpass
 
 func (s *session) start() {
 	s.log("start session")
-	rb := bufio.NewReader(s.rw)
 	for {
-		line, _, err := rb.ReadLine()
+		header, commandName, err := protocol.ReadRequestHeader(s.rw)
 		if err != nil {
 			s.log(fmt.Sprintf("read error: %s", err))
 			break
 		}
 
-		if len(line) > 0 {
-			parts := strings.SplitN(string(line), " ", 2)
-
-			if command, found := s.sessionCommands[parts[0]]; found {
-				s.log(fmt.Sprintf("run %s", parts[0]))
-				s.rw.Write(command(line, rb))
-				continue
-			}
-
-			if command, found := s.serverCommands[parts[0]]; found {
-				if s.isAuthRequired && !s.isAuthorized {
-					s.rw.Write(encodeError(errors.New("Need authentitication")))
-					continue
-				}
-				s.log(fmt.Sprintf("run %s", parts[0]))
-				s.rw.Write(command(line, rb))
-				continue
-			}
-
-			s.rw.Write(encodeError(errors.New("Unknown command")))
+		if command, found := s.sessionCommands[commandName]; found {
+			s.log(fmt.Sprintf("run %s", commandName))
+			s.rw.Write(command(header, s.rw))
+			continue
 		}
+
+		if command, found := s.serverCommands[commandName]; found {
+			if s.isAuthRequired && !s.isAuthorized {
+				s.rw.Write(encodeError(errors.New("Need authentitication")))
+				continue
+			}
+			s.log(fmt.Sprintf("run %s", commandName))
+			s.rw.Write(command(header, s.rw))
+			continue
+		}
+
+		s.rw.Write(encodeError(errors.New("Unknown command")))
 	}
 	s.log("close session")
 }

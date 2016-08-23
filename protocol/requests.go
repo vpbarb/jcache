@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"regexp"
@@ -178,7 +179,7 @@ func (r *keyValueRequest) Decode(header []byte, data io.Reader) error {
 	}
 	value, err := parseValue(matches[3], data)
 	if err != nil {
-		return invalidCommandFormatError
+		return err
 	}
 	r.Key = matches[2]
 	r.Value = value
@@ -250,7 +251,7 @@ func (r *keyFieldValueRequest) Decode(header []byte, data io.Reader) error {
 	}
 	value, err := parseValue(matches[4], data)
 	if err != nil {
-		return invalidCommandFormatError
+		return err
 	}
 	r.Key = matches[2]
 	r.Field = matches[3]
@@ -288,7 +289,7 @@ func (r *setRequest) Decode(header []byte, data io.Reader) error {
 	}
 	value, err := parseValue(matches[4], data)
 	if err != nil {
-		return invalidCommandFormatError
+		return err
 	}
 	r.Key = matches[2]
 	r.TTL = ttl
@@ -345,7 +346,10 @@ func parseValue(lengthParam string, data io.Reader) (string, error) {
 	}
 
 	value := make([]byte, length, length)
-	n, err := data.Read(value)
+	buf := bufio.NewReader(data)
+	n, err := buf.Read(value)
+	// Read data until line end
+	buf.ReadLine()
 	if err != nil {
 		return "", err
 	}

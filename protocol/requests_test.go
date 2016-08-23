@@ -106,7 +106,7 @@ func (s *RequestsTestSuite) TestSetDecodeError(c *C) {
 	err = request.Decode([]byte("CMD key 0 str"), &bytes.Buffer{})
 	c.Assert(err, ErrorMatches, "Invalid command format")
 	err = request.Decode([]byte("CMD key 3 5"), bytes.NewBufferString("v\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
 func (s *RequestsTestSuite) TestKeyValueEncode(c *C) {
@@ -148,7 +148,7 @@ func (s *RequestsTestSuite) TestKeyValueDecodeError(c *C) {
 	err = request.Decode([]byte("CMD key str"), &bytes.Buffer{})
 	c.Assert(err, ErrorMatches, "Invalid command format")
 	err = request.Decode([]byte("CMD key 5"), bytes.NewBufferString("v\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
 func (s *RequestsTestSuite) TestKeyFieldEncode(c *C) {
@@ -286,7 +286,7 @@ func (s *RequestsTestSuite) TestKeyFieldValueDecodeError(c *C) {
 	err = request.Decode([]byte("CMD key field str"), &bytes.Buffer{})
 	c.Assert(err, ErrorMatches, "Invalid command format")
 	err = request.Decode([]byte("CMD key field 20"), bytes.NewBufferString("value\r\nvalue\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
 func (s *RequestsTestSuite) TestListRangeEncode(c *C) {
