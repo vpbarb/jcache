@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"net"
@@ -299,7 +298,7 @@ func (c *Client) connFactory() (net.Conn, error) {
 	return conn, nil
 }
 
-func (c *Client) call(request protocol.Encoder, response protocol.Decoder) error {
+func (c *Client) call(request protocol.Request, response protocol.Response) error {
 	conn, err := c.connPool.Get()
 	if err != nil {
 		return err
@@ -309,7 +308,7 @@ func (c *Client) call(request protocol.Encoder, response protocol.Decoder) error
 	return c.callRW(conn, request, response)
 }
 
-func (c *Client) callRW(rw io.ReadWriter, request protocol.Encoder, response protocol.Decoder) error {
+func (c *Client) callRW(rw io.ReadWriter, request protocol.Request, response protocol.Response) error {
 	data, err := request.Encode()
 	if err != nil {
 		return err
@@ -318,13 +317,7 @@ func (c *Client) callRW(rw io.ReadWriter, request protocol.Encoder, response pro
 	if err != nil {
 		return err
 	}
-
-	rb := bufio.NewReader(rw)
-	line, _, err := rb.ReadLine()
-	if err != nil {
-		return fmt.Errorf("Cannot read from connection: %s", err)
-	}
-	err = response.Decode(line, rb)
+	err = response.Decode(rw)
 	if err != nil {
 		return err
 	}

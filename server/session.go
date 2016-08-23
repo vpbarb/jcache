@@ -39,7 +39,7 @@ func newSession(id string, rw io.ReadWriter, commands map[string]command, htpass
 func (s *session) start() {
 	s.log("start session")
 	for {
-		header, commandName, err := protocol.ReadRequestHeader(s.rw)
+		commandName, err := protocol.ReadRequestCommand(s.rw)
 		if err != nil {
 			s.log(fmt.Sprintf("read error: %s", err))
 			break
@@ -47,7 +47,7 @@ func (s *session) start() {
 
 		if command, found := s.sessionCommands[commandName]; found {
 			s.log(fmt.Sprintf("run %s", commandName))
-			s.rw.Write(command(header, s.rw))
+			s.rw.Write(command(s.rw))
 			continue
 		}
 
@@ -57,7 +57,7 @@ func (s *session) start() {
 				continue
 			}
 			s.log(fmt.Sprintf("run %s", commandName))
-			s.rw.Write(command(header, s.rw))
+			s.rw.Write(command(s.rw))
 			continue
 		}
 

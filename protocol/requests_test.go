@@ -19,15 +19,13 @@ func (s *RequestsTestSuite) TestRequestEncode(c *C) {
 
 func (s *RequestsTestSuite) TestRequestDecode(c *C) {
 	request := newRequest("CMD")
-	err := request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, IsNil)
 }
 
 func (s *RequestsTestSuite) TestRequestDecodeError(c *C) {
 	request := newRequest("CMD")
-	err := request.Decode([]byte("TEST"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
 }
 
@@ -51,7 +49,7 @@ func (s *RequestsTestSuite) TestKeyEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestKeyDecode(c *C) {
 	request := newKeyRequest("CMD")
-	err := request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("key\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 }
@@ -59,11 +57,7 @@ func (s *RequestsTestSuite) TestKeyDecode(c *C) {
 func (s *RequestsTestSuite) TestKeyDecodeError(c *C) {
 	request := newKeyRequest("CMD")
 	var err error
-	err = request.Decode([]byte("TEST key"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD +"), &bytes.Buffer{})
+	err = request.Decode(&bytes.Buffer{})
 	c.Assert(err, ErrorMatches, "Invalid command format")
 }
 
@@ -85,7 +79,7 @@ func (s *RequestsTestSuite) TestSetEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestSetDecode(c *C) {
 	request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
-	err := request.Decode([]byte("CMD key 3 5"), bytes.NewBufferString("value\r\n"))
+	err := request.Decode(bytes.NewBufferString("key 3 5\r\nvalue\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 	c.Assert(request.Value, Equals, "value")
@@ -95,17 +89,15 @@ func (s *RequestsTestSuite) TestSetDecode(c *C) {
 func (s *RequestsTestSuite) TestSetDecodeError(c *C) {
 	request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
 	var err error
-	err = request.Decode([]byte("TEST key 3 5"), bytes.NewBufferString("value\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key 0"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key 0\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key 0 str"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key 0 str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key 3 5"), bytes.NewBufferString("v\r\n"))
+	err = request.Decode(bytes.NewBufferString("key 3 5\r\nv\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
@@ -130,7 +122,7 @@ func (s *RequestsTestSuite) TestKeyValueEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestKeyValueDecode(c *C) {
 	request := newKeyValueRequest("CMD")
-	err := request.Decode([]byte("CMD key 5"), bytes.NewBufferString("value\r\n"))
+	err := request.Decode(bytes.NewBufferString("key 5\r\nvalue\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 	c.Assert(request.Value, Equals, "value")
@@ -139,15 +131,13 @@ func (s *RequestsTestSuite) TestKeyValueDecode(c *C) {
 func (s *RequestsTestSuite) TestKeyValueDecodeError(c *C) {
 	request := newKeyValueRequest("CMD")
 	var err error
-	err = request.Decode([]byte("TEST key 5"), bytes.NewBufferString("value\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key \r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key str"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key 5"), bytes.NewBufferString("v\r\n"))
+	err = request.Decode(bytes.NewBufferString("key 5\r\nv\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
@@ -177,7 +167,7 @@ func (s *RequestsTestSuite) TestKeyFieldEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestKeyFieldDecode(c *C) {
 	request := newKeyFieldRequest("CMD")
-	err := request.Decode([]byte("CMD key field"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("key field\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 	c.Assert(request.Field, Equals, "field")
@@ -186,13 +176,9 @@ func (s *RequestsTestSuite) TestKeyFieldDecode(c *C) {
 func (s *RequestsTestSuite) TestKeyFieldDecodeError(c *C) {
 	request := newKeyFieldRequest("CMD")
 	var err error
-	err = request.Decode([]byte("TEST key field"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key +"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
 }
 
@@ -217,7 +203,7 @@ func (s *RequestsTestSuite) TestKeyTTLEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestKeyTTLDecode(c *C) {
 	request := newKeyTTLRequest("CMD")
-	err := request.Decode([]byte("CMD key 5"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("key 5\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 	c.Assert(request.TTL, Equals, uint64(5))
@@ -226,13 +212,11 @@ func (s *RequestsTestSuite) TestKeyTTLDecode(c *C) {
 func (s *RequestsTestSuite) TestKeyTTLDecodeError(c *C) {
 	request := newKeyTTLRequest("CMD")
 	var err error
-	err = request.Decode([]byte("TEST key 5"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key \r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key str"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
 }
 
@@ -263,7 +247,7 @@ func (s *RequestsTestSuite) TestKeyFieldValueEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestKeyFieldValueDecode(c *C) {
 	request := newKeyFieldValueRequest("CMD")
-	err := request.Decode([]byte("CMD key field 12"), bytes.NewBufferString("value\r\nvalue\r\n"))
+	err := request.Decode(bytes.NewBufferString("key field 12\r\nvalue\r\nvalue\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 	c.Assert(request.Field, Equals, "field")
@@ -273,19 +257,15 @@ func (s *RequestsTestSuite) TestKeyFieldValueDecode(c *C) {
 func (s *RequestsTestSuite) TestKeyFieldValueDecodeError(c *C) {
 	request := newKeyFieldValueRequest("CMD")
 	var err error
-	err = request.Decode([]byte("TEST key field 12"), bytes.NewBufferString("value\r\nvalue\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key +"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key field\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key field"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key field str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key field str"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key field 20"), bytes.NewBufferString("value\r\nvalue\r\n"))
+	err = request.Decode(bytes.NewBufferString("key field 20\r\nvalue\r\nvalue\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
@@ -311,7 +291,7 @@ func (s *RequestsTestSuite) TestListRangeEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestListRangeDecode(c *C) {
 	request := &listRangeRequest{keyRequest: newKeyRequest("CMD")}
-	err := request.Decode([]byte("CMD key 1 3"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("key 1 3\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.Key, Equals, "key")
 	c.Assert(request.Start, Equals, 1)
@@ -321,15 +301,13 @@ func (s *RequestsTestSuite) TestListRangeDecode(c *C) {
 func (s *RequestsTestSuite) TestListRangeDecodeError(c *C) {
 	request := &listRangeRequest{keyRequest: newKeyRequest("CMD")}
 	var err error
-	err = request.Decode([]byte("TEST key 0 0"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key 1"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key 1\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD key 1 str"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("key 1 str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
 }
 
@@ -359,7 +337,7 @@ func (s *RequestsTestSuite) TestAuthEncodeError(c *C) {
 
 func (s *RequestsTestSuite) TestAuthDecode(c *C) {
 	request := &authRequest{request: newRequest("CMD")}
-	err := request.Decode([]byte("CMD user password"), &bytes.Buffer{})
+	err := request.Decode(bytes.NewBufferString("user password\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(request.User, Equals, "user")
 	c.Assert(request.Password, Equals, "password")
@@ -368,12 +346,10 @@ func (s *RequestsTestSuite) TestAuthDecode(c *C) {
 func (s *RequestsTestSuite) TestAuthDecodeError(c *C) {
 	request := &authRequest{request: newRequest("CMD")}
 	var err error
-	err = request.Decode([]byte("TEST user password"), &bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command")
-	err = request.Decode([]byte("CMD"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD user"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("user\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
-	err = request.Decode([]byte("CMD user +"), &bytes.Buffer{})
+	err = request.Decode(bytes.NewBufferString("user \r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
 }

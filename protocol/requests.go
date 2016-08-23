@@ -1,29 +1,20 @@
 package protocol
 
 import (
-	"bufio"
 	"fmt"
+	"gopkg.in/bufio.v1"
 	"io"
 	"regexp"
-	"strconv"
 )
 
 const (
 	keyTemplate = "[a-zA-Z0-9_]+"
-	intTemplate = "[0-9_]+"
 )
 
 var (
 	invalidCommandFormatError = fmt.Errorf("Invalid command format")
 
-	keyRegexp = regexp.MustCompile(keyTemplate)
-
-	requestHeaderRegexp          = regexp.MustCompile("^([A-Z]+)$")
-	keyRequestHeaderRegexp       = regexp.MustCompile(fmt.Sprintf("^([A-Z]+) (%s)$", keyTemplate))
-	keyIntRequestHeaderRegexp    = regexp.MustCompile(fmt.Sprintf("^([A-Z]+) (%s) (%s)$", keyTemplate, intTemplate))
-	keyKeyRequestHeaderRegexp    = regexp.MustCompile(fmt.Sprintf("^([A-Z]+) (%s) (%s)$", keyTemplate, keyTemplate))
-	keyKeyIntRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^([A-Z]+) (%s) (%s) (%s)$", keyTemplate, keyTemplate, intTemplate))
-	keyIntIntRequestHeaderRegexp = regexp.MustCompile(fmt.Sprintf("^([A-Z]+) (%s) (%s) (%s)$", keyTemplate, intTemplate, intTemplate))
+	keyRegexp = regexp.MustCompile("^" + keyTemplate + "$")
 )
 
 type request struct {
@@ -34,19 +25,9 @@ func (r request) Command() string {
 	return r.command
 }
 
-func (r request) checkCommand(command string) error {
-	if command != r.command {
-		return fmt.Errorf("Invalid command")
-	}
-	return nil
-}
-
-func (r *request) Decode(header []byte, data io.Reader) error {
-	matches := requestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 2 {
-		return invalidCommandFormatError
-	}
-	if err := r.checkCommand(matches[1]); err != nil {
+func (r *request) Decode(data io.Reader) error {
+	err := readRequestEnd(data)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -76,16 +57,17 @@ func (r *authRequest) validate() error {
 	return nil
 }
 
-func (r *authRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyKeyRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 4 {
+func (r *authRequest) Decode(data io.Reader) error {
+	var user string
+	var password string
+
+	_, err := fmt.Fscanf(data, "%s %s\r\n", &user, &password)
+	if err != nil {
 		return invalidCommandFormatError
 	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	r.User = matches[2]
-	r.Password = matches[3]
+
+	r.User = user
+	r.Password = password
 	return nil
 }
 
@@ -108,15 +90,15 @@ func (r *keyRequest) validate() error {
 	return fmt.Errorf("Key is not valid")
 }
 
-func (r *keyRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 3 {
+func (r *keyRequest) Decode(data io.Reader) error {
+	var key string
+
+	_, err := fmt.Fscanf(data, "%s\r\n", &key)
+	if err != nil {
 		return invalidCommandFormatError
 	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	r.Key = matches[2]
+
+	r.Key = key
 	return nil
 }
 
@@ -136,19 +118,16 @@ type keyTTLRequest struct {
 	TTL uint64
 }
 
-func (r *keyTTLRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyIntRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 4 {
-		return invalidCommandFormatError
-	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	ttl, err := parseTTL(matches[3])
+func (r *keyTTLRequest) Decode(data io.Reader) error {
+	var key string
+	var ttl uint64
+
+	_, err := fmt.Fscanf(data, "%s %d\r\n", &key, &ttl)
 	if err != nil {
 		return invalidCommandFormatError
 	}
-	r.Key = matches[2]
+
+	r.Key = key
 	r.TTL = ttl
 	return nil
 }
@@ -169,20 +148,22 @@ func newKeyTTLRequest(command string) *keyTTLRequest {
 	return &keyTTLRequest{keyRequest: newKeyRequest(command)}
 }
 
-func (r *keyValueRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyIntRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 4 {
+func (r *keyValueRequest) Decode(data io.Reader) error {
+	var key string
+	var length int
+
+	_, err := fmt.Fscanf(data, "%s %d\r\n", &key, &length)
+	if err != nil {
 		return invalidCommandFormatError
 	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	value, err := parseValue(matches[3], data)
+
+	value, err := readRequestValue(data, length)
 	if err != nil {
 		return err
 	}
-	r.Key = matches[2]
-	r.Value = value
+
+	r.Key = key
+	r.Value = string(value)
 	return nil
 }
 
@@ -212,16 +193,17 @@ func (r *keyFieldRequest) validate() error {
 	return nil
 }
 
-func (r *keyFieldRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyKeyRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 4 {
+func (r *keyFieldRequest) Decode(data io.Reader) error {
+	var key string
+	var field string
+
+	_, err := fmt.Fscanf(data, "%s %s\r\n", &key, &field)
+	if err != nil {
 		return invalidCommandFormatError
 	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	r.Key = matches[2]
-	r.Field = matches[3]
+
+	r.Key = key
+	r.Field = field
 	return nil
 }
 
@@ -241,21 +223,24 @@ type keyFieldValueRequest struct {
 	Value string
 }
 
-func (r *keyFieldValueRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyKeyIntRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 5 {
+func (r *keyFieldValueRequest) Decode(data io.Reader) error {
+	var key string
+	var field string
+	var length int
+
+	_, err := fmt.Fscanf(data, "%s %s %d\r\n", &key, &field, &length)
+	if err != nil {
 		return invalidCommandFormatError
 	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	value, err := parseValue(matches[4], data)
+
+	value, err := readRequestValue(data, length)
 	if err != nil {
 		return err
 	}
-	r.Key = matches[2]
-	r.Field = matches[3]
-	r.Value = value
+
+	r.Key = key
+	r.Field = field
+	r.Value = string(value)
 	return nil
 }
 
@@ -275,25 +260,24 @@ type setRequest struct {
 	TTL uint64
 }
 
-func (r *setRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyIntIntRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 4 {
-		return invalidCommandFormatError
-	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	ttl, err := parseTTL(matches[3])
+func (r *setRequest) Decode(data io.Reader) error {
+	var key string
+	var ttl uint64
+	var length int
+
+	_, err := fmt.Fscanf(data, "%s %d %d\r\n", &key, &ttl, &length)
 	if err != nil {
 		return invalidCommandFormatError
 	}
-	value, err := parseValue(matches[4], data)
+
+	value, err := readRequestValue(data, length)
 	if err != nil {
 		return err
 	}
-	r.Key = matches[2]
+
+	r.Key = key
 	r.TTL = ttl
-	r.Value = value
+	r.Value = string(value)
 	return nil
 }
 
@@ -310,23 +294,16 @@ type listRangeRequest struct {
 	Stop  int
 }
 
-func (r *listRangeRequest) Decode(header []byte, data io.Reader) error {
-	matches := keyIntIntRequestHeaderRegexp.FindStringSubmatch(string(header))
-	if len(matches) < 5 {
-		return invalidCommandFormatError
-	}
-	if err := r.checkCommand(matches[1]); err != nil {
-		return err
-	}
-	start, err := strconv.Atoi(matches[3])
+func (r *listRangeRequest) Decode(data io.Reader) error {
+	var key string
+	var start, stop int
+
+	_, err := fmt.Fscanf(data, "%s %d %d\r\n", &key, &start, &stop)
 	if err != nil {
 		return invalidCommandFormatError
 	}
-	stop, err := strconv.Atoi(matches[4])
-	if err != nil {
-		return invalidCommandFormatError
-	}
-	r.Key = matches[2]
+
+	r.Key = key
 	r.Start = start
 	r.Stop = stop
 	return nil
@@ -339,26 +316,28 @@ func (r *listRangeRequest) Encode() ([]byte, error) {
 	return []byte(fmt.Sprintf("%s %s %d %d\r\n", r.command, r.Key, r.Start, r.Stop)), nil
 }
 
-func parseValue(lengthParam string, data io.Reader) (string, error) {
-	length, err := strconv.Atoi(lengthParam)
-	if err != nil {
-		return "", err
-	}
-
+func readRequestValue(data io.Reader, length int) ([]byte, error) {
 	value := make([]byte, length, length)
-	buf := bufio.NewReader(data)
-	n, err := buf.Read(value)
-	// Read data until line end
-	buf.ReadLine()
+	n, err := data.Read(value)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if n != length {
-		return "", fmt.Errorf("Value length is invalid")
+		return nil, fmt.Errorf("Value length is invalid")
 	}
-	return string(value), nil
+	if err := readRequestEnd(data); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
-func parseTTL(ttlParam string) (uint64, error) {
-	return strconv.ParseUint(ttlParam, 10, 0)
+func readRequestEnd(data io.Reader) error {
+	end, _, err := bufio.NewReader(data).ReadLine()
+	if err != nil {
+		return err
+	}
+	if len(end) > 0 {
+		return invalidCommandFormatError
+	}
+	return nil
 }

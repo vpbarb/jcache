@@ -1,31 +1,27 @@
 package protocol
 
 import (
-	"bufio"
+	"fmt"
 	"io"
-	"strings"
 )
 
 type Request interface {
-	Command() string
-}
-
-type Encoder interface {
 	Encode() ([]byte, error)
+	Decode(io.Reader) error
 }
 
-type Decoder interface {
-	Decode([]byte, io.Reader) error
+type Response interface {
+	Encode() ([]byte, error)
+	Decode(io.Reader) error
 }
 
-func ReadRequestHeader(r io.Reader) ([]byte, string, error) {
-	rb := bufio.NewReader(r)
-	line, _, err := rb.ReadLine()
+func ReadRequestCommand(r io.Reader) (string, error) {
+	var command string
+	_, err := fmt.Fscanf(r, "%s", &command)
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
-	parts := strings.SplitN(string(line), " ", 2)
-	return line, parts[0], nil
+	return command, nil
 }
 
 // Requests
@@ -114,85 +110,85 @@ func NewListRangeRequest() *listRangeRequest {
 // Responses
 
 func NewAuthResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewKeysResponse() *keysResponse {
-	return &keysResponse{}
+	return &keysResponse{dataResponse: newDataResponse()}
 }
 
 func NewGetResponse() *valueResponse {
-	return &valueResponse{}
+	return &valueResponse{dataResponse: newDataResponse()}
 }
 
 func NewSetResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewDelResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewUpdResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewHashCreateResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewHashGetResponse() *valueResponse {
-	return &valueResponse{}
+	return &valueResponse{dataResponse: newDataResponse()}
 }
 
 func NewHashSetResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewHashDelResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewHashGetAllResponse() *fieldsResponse {
-	return &fieldsResponse{}
+	return &fieldsResponse{dataResponse: newDataResponse()}
 }
 
 func NewHashKeysResponse() *keysResponse {
-	return &keysResponse{}
+	return &keysResponse{dataResponse: newDataResponse()}
 }
 
 func NewHashLenResponse() *lenResponse {
-	return &lenResponse{}
+	return &lenResponse{dataResponse: newDataResponse()}
 }
 
 func NewListCreateResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewListRightPushResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewListLeftPushResponse() *okResponse {
-	return &okResponse{}
+	return newOkResponse()
 }
 
 func NewListRightPopResponse() *valueResponse {
-	return &valueResponse{}
+	return &valueResponse{dataResponse: newDataResponse()}
 }
 
 func NewListLeftPopResponse() *valueResponse {
-	return &valueResponse{}
+	return &valueResponse{dataResponse: newDataResponse()}
 }
 
 func NewListLenResponse() *lenResponse {
-	return &lenResponse{}
+	return &lenResponse{dataResponse: newDataResponse()}
 }
 
 func NewListRangeResponse() *valuesResponse {
-	return &valuesResponse{}
+	return &valuesResponse{dataResponse: newDataResponse()}
 }
 
 func NewErrorResponse(err error) *okResponse {
-	return &okResponse{response: response{Error: err}}
+	return &okResponse{response: &response{Error: err}}
 }

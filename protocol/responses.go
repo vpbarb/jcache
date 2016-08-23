@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -19,47 +17,63 @@ const (
 var (
 	invalidResponseFormatError = fmt.Errorf("Invalid response format")
 	invalidDataFormatError     = fmt.Errorf("Invalid data format")
-
-	valueHeaderRegexp = regexp.MustCompile("^VALUE ([0-9]+)$")
-	fieldHeaderRegexp = regexp.MustCompile("^FIELD ([a-zA-Z0-9_]+) ([0-9]+)$")
-	keyHeaderRegexp   = regexp.MustCompile("^KEY ([a-zA-Z0-9_]+)$")
-	lenHeaderRegexp   = regexp.MustCompile("^LEN ([0-9]+)$")
 )
 
 type response struct {
 	Error error
 }
 
-func (r response) encodeResponse(response []byte) ([]byte, error) {
+func (r *response) encodeResponse(response []byte) ([]byte, error) {
 	if r.Error != nil {
 		return []byte(fmt.Sprintf("%s%s\r\n", errorPrefix, r.Error)), nil
 	}
 	return response, nil
 }
 
+func (r *response) decodeHeader(buf *bufio.Reader) ([]byte, error) {
+	header, _, err := buf.ReadLine()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot read header: %s", err)
+	}
+	if strings.HasPrefix(string(header), errorPrefix) {
+		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(string(header), errorPrefix))
+	}
+	return header, nil
+}
+
 type okResponse struct {
-	response
+	*response
+}
+
+func newOkResponse() *okResponse {
+	return &okResponse{response: &response{}}
 }
 
 func (r *okResponse) Encode() ([]byte, error) {
 	return r.encodeResponse([]byte(okKeyword + "\r\n"))
 }
 
-func (r *okResponse) Decode(header []byte, data io.Reader) error {
-	str := string(header)
-	switch {
-	case strings.HasPrefix(str, errorPrefix):
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, errorPrefix))
+func (r *okResponse) Decode(data io.Reader) error {
+	buf := bufio.NewReader(data)
+	header, err := r.decodeHeader(buf)
+	if err != nil {
+		return err
+	}
+	if r.Error != nil {
 		return nil
-	case str == okKeyword:
-		return nil
+	}
+	if string(header) == okKeyword {
 		return nil
 	}
 	return invalidResponseFormatError
 }
 
 type dataResponse struct {
-	response
+	*response
+}
+
+func newDataResponse() dataResponse {
+	return dataResponse{response: &response{}}
 }
 
 func (r dataResponse) encodeData(data []byte) ([]byte, error) {
@@ -78,24 +92,22 @@ func (r *lenResponse) Encode() ([]byte, error) {
 	return r.encodeData([]byte(fmt.Sprintf("LEN %d\r\n", r.Len)))
 }
 
-func (r *lenResponse) Decode(header []byte, data io.Reader) error {
-	str := string(header)
-	switch {
-	case strings.HasPrefix(str, errorPrefix):
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, errorPrefix))
+func (r *lenResponse) Decode(data io.Reader) error {
+	buf := bufio.NewReader(data)
+	header, err := r.decodeHeader(buf)
+	if err != nil {
+		return err
+	}
+	if r.Error != nil {
 		return nil
-	case str == dataKeyword:
-		buf := bufio.NewReader(data)
-		for {
-			length, isEnd, err := readLen(buf)
-			if err != nil {
-				return err
-			}
-			if isEnd {
-				return nil
-			}
-			r.Len = length
+	}
+	if string(header) == dataKeyword {
+		length, err := readLen(buf)
+		if err != nil {
+			return err
 		}
+		r.Len = length
+		return nil
 	}
 	return invalidResponseFormatError
 }
@@ -109,16 +121,18 @@ func (r *valueResponse) Encode() ([]byte, error) {
 	return r.encodeData([]byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(r.Value), r.Value)))
 }
 
-func (r *valueResponse) Decode(header []byte, data io.Reader) error {
-	str := string(header)
-	switch {
-	case strings.HasPrefix(str, errorPrefix):
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, errorPrefix))
+func (r *valueResponse) Decode(data io.Reader) error {
+	buf := bufio.NewReader(data)
+	header, err := r.decodeHeader(buf)
+	if err != nil {
+		return err
+	}
+	if r.Error != nil {
 		return nil
-	case str == dataKeyword:
-		buf := bufio.NewReader(data)
+	}
+	if string(header) == dataKeyword {
 		for {
-			value, isEnd, err := readValue(buf)
+			value, isEnd, err := readResponseValue(buf)
 			if err != nil {
 				return err
 			}
@@ -147,17 +161,19 @@ func (r *keysResponse) Encode() ([]byte, error) {
 	return r.encodeData(data)
 }
 
-func (r *keysResponse) Decode(header []byte, data io.Reader) error {
-	str := string(header)
-	switch {
-	case strings.HasPrefix(str, errorPrefix):
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, errorPrefix))
+func (r *keysResponse) Decode(data io.Reader) error {
+	buf := bufio.NewReader(data)
+	header, err := r.decodeHeader(buf)
+	if err != nil {
+		return err
+	}
+	if r.Error != nil {
 		return nil
-	case str == dataKeyword:
-		buf := bufio.NewReader(data)
+	}
+	if string(header) == dataKeyword {
 		var keys []string
 		for {
-			key, isEnd, err := readKey(buf)
+			key, isEnd, err := readResponseKey(buf)
 			if err != nil {
 				return err
 			}
@@ -184,17 +200,19 @@ func (r *valuesResponse) Encode() ([]byte, error) {
 	return r.encodeData(data)
 }
 
-func (r *valuesResponse) Decode(header []byte, data io.Reader) error {
-	str := string(header)
-	switch {
-	case strings.HasPrefix(str, errorPrefix):
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, errorPrefix))
+func (r *valuesResponse) Decode(data io.Reader) error {
+	buf := bufio.NewReader(data)
+	header, err := r.decodeHeader(buf)
+	if err != nil {
+		return err
+	}
+	if r.Error != nil {
 		return nil
-	case str == dataKeyword:
-		buf := bufio.NewReader(data)
+	}
+	if string(header) == dataKeyword {
 		var values []string
 		for {
-			value, isEnd, err := readValue(buf)
+			value, isEnd, err := readResponseValue(buf)
 			if err != nil {
 				return err
 			}
@@ -221,17 +239,19 @@ func (r *fieldsResponse) Encode() ([]byte, error) {
 	return r.encodeData(data)
 }
 
-func (r *fieldsResponse) Decode(header []byte, data io.Reader) error {
-	str := string(header)
-	switch {
-	case strings.HasPrefix(str, errorPrefix):
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(str, errorPrefix))
+func (r *fieldsResponse) Decode(data io.Reader) error {
+	buf := bufio.NewReader(data)
+	header, err := r.decodeHeader(buf)
+	if err != nil {
+		return err
+	}
+	if r.Error != nil {
 		return nil
-	case str == dataKeyword:
-		buf := bufio.NewReader(data)
+	}
+	if string(header) == dataKeyword {
 		fields := make(map[string]string)
 		for {
-			field, value, isEnd, err := readField(buf)
+			field, value, isEnd, err := readResponseField(buf)
 			if err != nil {
 				return err
 			}
@@ -245,7 +265,7 @@ func (r *fieldsResponse) Decode(header []byte, data io.Reader) error {
 	return invalidResponseFormatError
 }
 
-func readValue(buf *bufio.Reader) (string, bool, error) {
+func readResponseValue(buf *bufio.Reader) (string, bool, error) {
 	line, _, err := buf.ReadLine()
 	if err != nil {
 		return "", false, err
@@ -254,25 +274,27 @@ func readValue(buf *bufio.Reader) (string, bool, error) {
 	if str == endKeyword {
 		return "", true, nil
 	}
-	matches := valueHeaderRegexp.FindStringSubmatch(str)
-	if len(matches) < 2 {
+	var length int
+	_, err = fmt.Sscanf(str, "VALUE %d", &length)
+	if err != nil {
 		return "", false, invalidDataFormatError
 	}
-	length, err := strconv.Atoi(matches[1])
+	value := make([]byte, length, length)
+	n, err := buf.Read(value)
 	if err != nil {
 		return "", false, err
 	}
-	data := make([]byte, length, length)
-	n, err := buf.Read(data)
-	if err != nil || n != length {
-		return "", false, err
+	if n != length {
+		return "", false, fmt.Errorf("Value length is invalid")
 	}
-	value := string(data)
-	buf.ReadLine()
-	return value, false, nil
+	line, _, err = buf.ReadLine()
+	if len(line) > 0 || err != nil {
+		return "", false, fmt.Errorf("Value length is invalid")
+	}
+	return string(value), false, nil
 }
 
-func readField(buf *bufio.Reader) (string, string, bool, error) {
+func readResponseField(buf *bufio.Reader) (string, string, bool, error) {
 	line, _, err := buf.ReadLine()
 	if err != nil {
 		return "", "", false, err
@@ -281,25 +303,28 @@ func readField(buf *bufio.Reader) (string, string, bool, error) {
 	if str == endKeyword {
 		return "", "", true, nil
 	}
-	matches := fieldHeaderRegexp.FindStringSubmatch(str)
-	if len(matches) < 3 {
+	var field string
+	var length int
+	_, err = fmt.Sscanf(str, "FIELD %s %d", &field, &length)
+	if err != nil {
 		return "", "", false, invalidDataFormatError
 	}
-	length, err := strconv.Atoi(matches[2])
+	value := make([]byte, length, length)
+	n, err := buf.Read(value)
 	if err != nil {
 		return "", "", false, err
 	}
-	data := make([]byte, length, length)
-	n, err := buf.Read(data)
-	if err != nil || n != length {
-		return "", "", false, err
+	if n != length {
+		return "", "", false, fmt.Errorf("Value length is invalid")
 	}
-	value := string(data)
-	buf.ReadLine()
-	return matches[1], value, false, nil
+	line, _, err = buf.ReadLine()
+	if len(line) > 0 || err != nil {
+		return "", "", false, fmt.Errorf("Value length is invalid")
+	}
+	return field, string(value), false, nil
 }
 
-func readKey(buf *bufio.Reader) (string, bool, error) {
+func readResponseKey(buf *bufio.Reader) (string, bool, error) {
 	line, _, err := buf.ReadLine()
 	if err != nil {
 		return "", false, err
@@ -308,30 +333,19 @@ func readKey(buf *bufio.Reader) (string, bool, error) {
 	if str == endKeyword {
 		return "", true, nil
 	}
-	matches := keyHeaderRegexp.FindStringSubmatch(str)
-	if len(matches) < 2 {
+	var key string
+	_, err = fmt.Sscanf(str, "KEY %s", &key)
+	if err != nil {
 		return "", false, invalidDataFormatError
 	}
-	key := matches[1]
 	return key, false, nil
 }
 
-func readLen(buf *bufio.Reader) (int, bool, error) {
-	line, _, err := buf.ReadLine()
+func readLen(buf *bufio.Reader) (int, error) {
+	var length int
+	_, err := fmt.Fscanf(buf, "LEN %d\r\nEND\r\n", &length)
 	if err != nil {
-		return 0, false, err
+		return 0, invalidDataFormatError
 	}
-	str := string(line)
-	if str == endKeyword {
-		return 0, true, nil
-	}
-	matches := lenHeaderRegexp.FindStringSubmatch(str)
-	if len(matches) < 2 {
-		return 0, false, invalidDataFormatError
-	}
-	length, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return 0, false, err
-	}
-	return length, false, nil
+	return length, nil
 }
