@@ -7,16 +7,8 @@ import (
 	"strings"
 )
 
-const (
-	dataKeyword = "DATA"
-	endKeyword  = "END"
-	okKeyword   = "OK"
-	errorPrefix = "ERROR "
-)
-
 var (
 	invalidResponseFormatError = fmt.Errorf("Invalid response format")
-	invalidDataFormatError     = fmt.Errorf("Invalid data format")
 )
 
 type response struct {
@@ -25,7 +17,7 @@ type response struct {
 
 func (r *response) encodeResponse(response []byte) ([]byte, error) {
 	if r.Error != nil {
-		return []byte(fmt.Sprintf("%s%s\r\n", errorPrefix, r.Error)), nil
+		return []byte(fmt.Sprintf("ERROR %s\r\n", r.Error)), nil
 	}
 	return response, nil
 }
@@ -35,8 +27,8 @@ func (r *response) decodeHeader(buf *bufio.Reader) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Cannot read header: %s", err)
 	}
-	if strings.HasPrefix(string(header), errorPrefix) {
-		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(string(header), errorPrefix))
+	if strings.HasPrefix(string(header), "ERROR") {
+		r.Error = fmt.Errorf("Response error: %s", strings.TrimPrefix(string(header), "ERROR "))
 	}
 	return header, nil
 }
@@ -50,7 +42,7 @@ func newOkResponse() *okResponse {
 }
 
 func (r *okResponse) Encode() ([]byte, error) {
-	return r.encodeResponse([]byte(okKeyword + "\r\n"))
+	return r.encodeResponse([]byte("OK\r\n"))
 }
 
 func (r *okResponse) Decode(data io.Reader) error {
@@ -62,25 +54,33 @@ func (r *okResponse) Decode(data io.Reader) error {
 	if r.Error != nil {
 		return nil
 	}
-	if string(header) == okKeyword {
+	if string(header) == "OK" {
 		return nil
 	}
 	return invalidResponseFormatError
 }
 
-type dataResponse struct {
+type countResponse struct {
 	*response
 }
 
-func newDataResponse() dataResponse {
-	return dataResponse{response: &response{}}
+func newDataResponse() countResponse {
+	return countResponse{response: &response{}}
 }
 
-func (r dataResponse) encodeData(data []byte) ([]byte, error) {
-	response := []byte(dataKeyword + "\r\n")
+func (r countResponse) encodeData(data []byte, count int) ([]byte, error) {
+	response := []byte(fmt.Sprintf("COUNT %d\r\n", count))
 	response = append(response, data...)
-	response = append(response, []byte(endKeyword+"\r\n")...)
 	return r.encodeResponse(response)
+}
+
+func (r countResponse) decodeCount(header []byte) (int, error) {
+	var count int
+	_, err := fmt.Sscanf(string(header), "COUNT %d", &count)
+	if err != nil {
+		return 0, invalidResponseFormatError
+	}
+	return count, nil
 }
 
 type lenResponse struct {
@@ -147,7 +147,7 @@ func (r *valueResponse) Decode(data io.Reader) error {
 }
 
 type keysResponse struct {
-	dataResponse
+	countResponse
 	Keys []string
 }
 
@@ -159,7 +159,7 @@ func (r *keysResponse) Encode() ([]byte, error) {
 		}
 		data = append(data, []byte(fmt.Sprintf("KEY %s\r\n", key))...)
 	}
-	return r.encodeData(data)
+	return r.encodeData(data, len(r.Keys))
 }
 
 func (r *keysResponse) Decode(data io.Reader) error {
@@ -171,30 +171,29 @@ func (r *keysResponse) Decode(data io.Reader) error {
 	if r.Error != nil {
 		return nil
 	}
-	if string(header) == dataKeyword {
-		var keys []string
-		for {
-			header, err := r.decodeHeader(buf)
-			if err != nil {
-				return err
-			}
-			if string(header) == endKeyword {
-				r.Keys = keys
-				return nil
-			}
-			var key string
-			_, err = fmt.Sscanf(string(header), "KEY %s", &key)
-			if err != nil {
-				return invalidResponseFormatError
-			}
-			keys = append(keys, key)
-		}
+	count, err := r.decodeCount(header)
+	if err != nil {
+		return err
 	}
-	return invalidResponseFormatError
+	var keys []string
+	for i := 0; i < count; i++ {
+		header, _, err := buf.ReadLine()
+		if err != nil {
+			return err
+		}
+		var key string
+		_, err = fmt.Sscanf(string(header), "KEY %s", &key)
+		if err != nil {
+			return invalidResponseFormatError
+		}
+		keys = append(keys, key)
+	}
+	r.Keys = keys
+	return nil
 }
 
 type valuesResponse struct {
-	dataResponse
+	countResponse
 	Values []string
 }
 
@@ -203,7 +202,7 @@ func (r *valuesResponse) Encode() ([]byte, error) {
 	for _, value := range r.Values {
 		data = append(data, []byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(value), value))...)
 	}
-	return r.encodeData(data)
+	return r.encodeData(data, len(r.Values))
 }
 
 func (r *valuesResponse) Decode(data io.Reader) error {
@@ -215,34 +214,33 @@ func (r *valuesResponse) Decode(data io.Reader) error {
 	if r.Error != nil {
 		return nil
 	}
-	if string(header) == dataKeyword {
-		var values []string
-		for {
-			header, err := r.decodeHeader(buf)
-			if err != nil {
-				return err
-			}
-			if string(header) == endKeyword {
-				r.Values = values
-				return nil
-			}
-			var length int
-			_, err = fmt.Sscanf(string(header), "VALUE %d", &length)
-			if err != nil {
-				return invalidResponseFormatError
-			}
-			value, err := readResponseValue(buf, length)
-			if err != nil {
-				return err
-			}
-			values = append(values, string(value))
-		}
+	count, err := r.decodeCount(header)
+	if err != nil {
+		return err
 	}
-	return invalidResponseFormatError
+	var values []string
+	for i := 0; i < count; i++ {
+		header, _, err := buf.ReadLine()
+		if err != nil {
+			return err
+		}
+		var length int
+		_, err = fmt.Sscanf(string(header), "VALUE %d", &length)
+		if err != nil {
+			return invalidResponseFormatError
+		}
+		value, err := readResponseValue(buf, length)
+		if err != nil {
+			return err
+		}
+		values = append(values, string(value))
+	}
+	r.Values = values
+	return nil
 }
 
 type fieldsResponse struct {
-	dataResponse
+	countResponse
 	Fields map[string]string
 }
 
@@ -251,7 +249,7 @@ func (r *fieldsResponse) Encode() ([]byte, error) {
 	for field, value := range r.Fields {
 		data = append(data, []byte(fmt.Sprintf("FIELD %s %d\r\n%s\r\n", field, len(value), value))...)
 	}
-	return r.encodeData(data)
+	return r.encodeData(data, len(r.Fields))
 }
 
 func (r *fieldsResponse) Decode(data io.Reader) error {
@@ -263,31 +261,30 @@ func (r *fieldsResponse) Decode(data io.Reader) error {
 	if r.Error != nil {
 		return nil
 	}
-	if string(header) == dataKeyword {
-		fields := make(map[string]string)
-		for {
-			header, err := r.decodeHeader(buf)
-			if err != nil {
-				return err
-			}
-			if string(header) == endKeyword {
-				r.Fields = fields
-				return nil
-			}
-			var field string
-			var length int
-			_, err = fmt.Sscanf(string(header), "FIELD %s %d", &field, &length)
-			if err != nil {
-				return invalidResponseFormatError
-			}
-			value, err := readResponseValue(buf, length)
-			if err != nil {
-				return err
-			}
-			fields[field] = string(value)
-		}
+	count, err := r.decodeCount(header)
+	if err != nil {
+		return err
 	}
-	return invalidResponseFormatError
+	fields := make(map[string]string)
+	for i := 0; i < count; i++ {
+		header, _, err := buf.ReadLine()
+		if err != nil {
+			return err
+		}
+		var field string
+		var length int
+		_, err = fmt.Sscanf(string(header), "FIELD %s %d", &field, &length)
+		if err != nil {
+			return invalidResponseFormatError
+		}
+		value, err := readResponseValue(buf, length)
+		if err != nil {
+			return err
+		}
+		fields[field] = string(value)
+	}
+	r.Fields = fields
+	return nil
 }
 
 func readResponseValue(buf *bufio.Reader, length int) (string, error) {

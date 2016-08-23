@@ -114,7 +114,7 @@ func NewAuthResponse() *okResponse {
 }
 
 func NewKeysResponse() *keysResponse {
-	return &keysResponse{dataResponse: newDataResponse()}
+	return &keysResponse{countResponse: newDataResponse()}
 }
 
 func NewGetResponse() *valueResponse {
@@ -150,11 +150,11 @@ func NewHashDelResponse() *okResponse {
 }
 
 func NewHashGetAllResponse() *fieldsResponse {
-	return &fieldsResponse{dataResponse: newDataResponse()}
+	return &fieldsResponse{countResponse: newDataResponse()}
 }
 
 func NewHashKeysResponse() *keysResponse {
-	return &keysResponse{dataResponse: newDataResponse()}
+	return &keysResponse{countResponse: newDataResponse()}
 }
 
 func NewHashLenResponse() *lenResponse {
@@ -186,7 +186,7 @@ func NewListLenResponse() *lenResponse {
 }
 
 func NewListRangeResponse() *valuesResponse {
-	return &valuesResponse{dataResponse: newDataResponse()}
+	return &valuesResponse{countResponse: newDataResponse()}
 }
 
 func NewErrorResponse(err error) *okResponse {

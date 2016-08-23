@@ -117,12 +117,12 @@ func (s *ResponsesTestSuite) TestValueDecodeError(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestKeysEncode(c *C) {
-	response := &keysResponse{dataResponse: newDataResponse()}
+	response := &keysResponse{countResponse: newDataResponse()}
 	response.Keys = []string{"key1", "key2"}
 
 	data, err := response.Encode()
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("DATA\r\nKEY key1\r\nKEY key2\r\nEND\r\n"))
+	c.Assert(data, DeepEquals, []byte("COUNT 2\r\nKEY key1\r\nKEY key2\r\n"))
 
 	response.Error = errors.New("TEST")
 	data, err = response.Encode()
@@ -131,9 +131,9 @@ func (s *ResponsesTestSuite) TestKeysEncode(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestKeysDecode(c *C) {
-	response := &keysResponse{dataResponse: newDataResponse()}
+	response := &keysResponse{countResponse: newDataResponse()}
 
-	err := response.Decode(bytes.NewBufferString("DATA\r\nKEY key1\r\nKEY key2\r\nEND\r\n"))
+	err := response.Decode(bytes.NewBufferString("COUNT 2\r\nKEY key1\r\nKEY key2\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(response.Error, IsNil)
 	c.Assert(response.Keys, DeepEquals, []string{"key1", "key2"})
@@ -144,21 +144,21 @@ func (s *ResponsesTestSuite) TestKeysDecode(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestKeysDecodeError(c *C) {
-	response := &keysResponse{dataResponse: newDataResponse()}
+	response := &keysResponse{countResponse: newDataResponse()}
 
 	err := response.Decode(bytes.NewBufferString("TEST\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
-	err = response.Decode(bytes.NewBufferString("DATA\r\nVALUE key\r\nEND\r\n"))
+	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nVALUE key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
 }
 
 func (s *ResponsesTestSuite) TestFieldsEncode(c *C) {
-	response := &fieldsResponse{dataResponse: newDataResponse()}
-	response.Fields = map[string]string{"field1": "value1", "field2": "value2"}
+	response := &fieldsResponse{countResponse: newDataResponse()}
+	response.Fields = map[string]string{"field1": "value1"}
 
 	data, err := response.Encode()
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("DATA\r\nFIELD field1 6\r\nvalue1\r\nFIELD field2 6\r\nvalue2\r\nEND\r\n"))
+	c.Assert(data, DeepEquals, []byte("COUNT 1\r\nFIELD field1 6\r\nvalue1\r\n"))
 
 	response.Error = errors.New("TEST")
 	data, err = response.Encode()
@@ -167,9 +167,9 @@ func (s *ResponsesTestSuite) TestFieldsEncode(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestFieldsDecode(c *C) {
-	response := &fieldsResponse{dataResponse: newDataResponse()}
+	response := &fieldsResponse{countResponse: newDataResponse()}
 
-	err := response.Decode(bytes.NewBufferString("DATA\r\nFIELD field1 6\r\nvalue1\r\nFIELD field2 6\r\nvalue2\r\nEND\r\n"))
+	err := response.Decode(bytes.NewBufferString("COUNT 2\r\nFIELD field1 6\r\nvalue1\r\nFIELD field2 6\r\nvalue2\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(response.Error, IsNil)
 	c.Assert(response.Fields["field1"], Equals, "value1")
@@ -181,23 +181,23 @@ func (s *ResponsesTestSuite) TestFieldsDecode(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestFieldsDecodeError(c *C) {
-	response := &fieldsResponse{dataResponse: newDataResponse()}
+	response := &fieldsResponse{countResponse: newDataResponse()}
 
 	err := response.Decode(bytes.NewBufferString("TEST\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
-	err = response.Decode(bytes.NewBufferString("DATA\r\nFIELD field\r\nEND\r\n"))
+	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nFIELD field\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
-	err = response.Decode(bytes.NewBufferString("DATA\r\nFIELD field 10\r\nEND\r\n"))
+	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nFIELD field 10\r\n\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
 
 func (s *ResponsesTestSuite) TestValuesEncode(c *C) {
-	response := &valuesResponse{dataResponse: newDataResponse()}
+	response := &valuesResponse{countResponse: newDataResponse()}
 	response.Values = []string{"value1", "value100"}
 
 	data, err := response.Encode()
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("DATA\r\nVALUE 6\r\nvalue1\r\nVALUE 8\r\nvalue100\r\nEND\r\n"))
+	c.Assert(data, DeepEquals, []byte("COUNT 2\r\nVALUE 6\r\nvalue1\r\nVALUE 8\r\nvalue100\r\n"))
 
 	response.Error = errors.New("TEST")
 	data, err = response.Encode()
@@ -206,9 +206,9 @@ func (s *ResponsesTestSuite) TestValuesEncode(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestValuesDecode(c *C) {
-	response := &valuesResponse{dataResponse: newDataResponse()}
+	response := &valuesResponse{countResponse: newDataResponse()}
 
-	err := response.Decode(bytes.NewBufferString("DATA\r\nVALUE 6\r\nvalue1\r\nVALUE 8\r\nvalue100\r\nEND\r\n"))
+	err := response.Decode(bytes.NewBufferString("COUNT 2\r\nVALUE 6\r\nvalue1\r\nVALUE 8\r\nvalue100\r\n"))
 	c.Assert(err, IsNil)
 	c.Assert(response.Error, IsNil)
 	c.Assert(response.Values, DeepEquals, []string{"value1", "value100"})
@@ -219,12 +219,14 @@ func (s *ResponsesTestSuite) TestValuesDecode(c *C) {
 }
 
 func (s *ResponsesTestSuite) TestValuesDecodeError(c *C) {
-	response := &valuesResponse{dataResponse: newDataResponse()}
+	response := &valuesResponse{countResponse: newDataResponse()}
 
 	err := response.Decode(bytes.NewBufferString("TEST\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
-	err = response.Decode(bytes.NewBufferString("DATA\r\nVALUE key\r\nEND\r\n"))
+	err = response.Decode(bytes.NewBufferString("COUNT test\r\nVALUE key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
-	err = response.Decode(bytes.NewBufferString("DATA\r\nVALUE 5\r\nEND\r\n"))
+	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nVALUE key\r\n"))
+	c.Assert(err, ErrorMatches, "Invalid response format")
+	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nVALUE 5\r\n\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
