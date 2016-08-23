@@ -1,7 +1,9 @@
 package protocol
 
 import (
+	"bufio"
 	"bytes"
+	"time"
 
 	. "gopkg.in/check.v1"
 )
@@ -99,6 +101,25 @@ func (s *RequestsTestSuite) TestSetDecodeError(c *C) {
 	c.Assert(err, ErrorMatches, "Invalid command format")
 	err = request.Decode(bytes.NewBufferString("key 3 5\r\nv\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
+}
+
+func (s *RequestsTestSuite) TestSetDecodeSlowConnection(c *C) {
+	conn := &slowConn{buf: bufio.NewReader(bytes.NewBufferString("key 3 5\r\nvalue\r\n"))}
+	request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
+	err := request.Decode(conn)
+	c.Assert(err, IsNil)
+	c.Assert(request.Key, Equals, "key")
+	c.Assert(request.Value, Equals, "value")
+	c.Assert(request.TTL, Equals, uint64(3))
+}
+
+func (s *RequestsTestSuite) TestSetDecodeSlowConnectionError(c *C) {
+	for _, str := range []string{"key 3 5\r", "key 3 5\r\nva", "key 3 5\r\nvalue\r"} {
+		conn := &slowConn{buf: bufio.NewReader(bytes.NewBufferString(str))}
+		request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
+		err := request.Decode(conn)
+		c.Assert(err, ErrorMatches, "Invalid command format")
+	}
 }
 
 func (s *RequestsTestSuite) TestKeyValueEncode(c *C) {
@@ -352,4 +373,21 @@ func (s *RequestsTestSuite) TestAuthDecodeError(c *C) {
 	c.Assert(err, ErrorMatches, "Invalid command format")
 	err = request.Decode(bytes.NewBufferString("user \r\n"))
 	c.Assert(err, ErrorMatches, "Invalid command format")
+}
+
+// slowConn immitates slow connection with timeout before each byte reading
+type slowConn struct {
+	buf *bufio.Reader
+}
+
+func (c *slowConn) Read(p []byte) (n int, err error) {
+	for i := 0; i < len(p); i++ {
+		time.Sleep(time.Millisecond)
+		b, err := c.buf.ReadByte()
+		if err != nil {
+			return i, err
+		}
+		p[i] = b
+	}
+	return len(p), nil
 }

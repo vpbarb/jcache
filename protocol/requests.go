@@ -320,7 +320,7 @@ func readRequestValue(data io.Reader, length int) ([]byte, error) {
 	value := make([]byte, length, length)
 	n, err := data.Read(value)
 	if err != nil {
-		return nil, err
+		return nil, invalidCommandFormatError
 	}
 	if n != length {
 		return nil, fmt.Errorf("Value length is invalid")
@@ -334,7 +334,7 @@ func readRequestValue(data io.Reader, length int) ([]byte, error) {
 func readRequestEnd(data io.Reader) error {
 	end, _, err := bufio.NewReader(data).ReadLine()
 	if err != nil {
-		return err
+		return invalidCommandFormatError
 	}
 	if len(end) > 0 {
 		return invalidCommandFormatError

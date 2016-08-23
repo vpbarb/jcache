@@ -118,7 +118,7 @@ func NewKeysResponse() *keysResponse {
 }
 
 func NewGetResponse() *valueResponse {
-	return &valueResponse{dataResponse: newDataResponse()}
+	return newValueResponse()
 }
 
 func NewSetResponse() *okResponse {
@@ -138,7 +138,7 @@ func NewHashCreateResponse() *okResponse {
 }
 
 func NewHashGetResponse() *valueResponse {
-	return &valueResponse{dataResponse: newDataResponse()}
+	return newValueResponse()
 }
 
 func NewHashSetResponse() *okResponse {
@@ -158,7 +158,7 @@ func NewHashKeysResponse() *keysResponse {
 }
 
 func NewHashLenResponse() *lenResponse {
-	return &lenResponse{dataResponse: newDataResponse()}
+	return &lenResponse{response: &response{}}
 }
 
 func NewListCreateResponse() *okResponse {
@@ -174,15 +174,15 @@ func NewListLeftPushResponse() *okResponse {
 }
 
 func NewListRightPopResponse() *valueResponse {
-	return &valueResponse{dataResponse: newDataResponse()}
+	return newValueResponse()
 }
 
 func NewListLeftPopResponse() *valueResponse {
-	return &valueResponse{dataResponse: newDataResponse()}
+	return newValueResponse()
 }
 
 func NewListLenResponse() *lenResponse {
-	return &lenResponse{dataResponse: newDataResponse()}
+	return &lenResponse{response: &response{}}
 }
 
 func NewListRangeResponse() *valuesResponse {

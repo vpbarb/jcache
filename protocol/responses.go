@@ -84,12 +84,12 @@ func (r dataResponse) encodeData(data []byte) ([]byte, error) {
 }
 
 type lenResponse struct {
-	dataResponse
+	*response
 	Len int
 }
 
 func (r *lenResponse) Encode() ([]byte, error) {
-	return r.encodeData([]byte(fmt.Sprintf("LEN %d\r\n", r.Len)))
+	return r.encodeResponse([]byte(fmt.Sprintf("LEN %d\r\n", r.Len)))
 }
 
 func (r *lenResponse) Decode(data io.Reader) error {
@@ -101,24 +101,27 @@ func (r *lenResponse) Decode(data io.Reader) error {
 	if r.Error != nil {
 		return nil
 	}
-	if string(header) == dataKeyword {
-		length, err := readLen(buf)
-		if err != nil {
-			return err
-		}
-		r.Len = length
-		return nil
+
+	var length int
+	_, err = fmt.Sscanf(string(header), "LEN %d", &length)
+	if err != nil {
+		return invalidResponseFormatError
 	}
-	return invalidResponseFormatError
+	r.Len = length
+	return nil
 }
 
 type valueResponse struct {
-	dataResponse
+	*response
 	Value string
 }
 
+func newValueResponse() *valueResponse {
+	return &valueResponse{response: &response{}}
+}
+
 func (r *valueResponse) Encode() ([]byte, error) {
-	return r.encodeData([]byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(r.Value), r.Value)))
+	return r.encodeResponse([]byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(r.Value), r.Value)))
 }
 
 func (r *valueResponse) Decode(data io.Reader) error {
@@ -130,19 +133,17 @@ func (r *valueResponse) Decode(data io.Reader) error {
 	if r.Error != nil {
 		return nil
 	}
-	if string(header) == dataKeyword {
-		for {
-			value, isEnd, err := readResponseValue(buf)
-			if err != nil {
-				return err
-			}
-			if isEnd {
-				return nil
-			}
-			r.Value = value
-		}
+	var length int
+	_, err = fmt.Sscanf(string(header), "VALUE %d", &length)
+	if err != nil {
+		return invalidResponseFormatError
 	}
-	return invalidResponseFormatError
+	value, err := readResponseValue(buf, length)
+	if err != nil {
+		return err
+	}
+	r.Value = string(value)
+	return nil
 }
 
 type keysResponse struct {
@@ -173,13 +174,18 @@ func (r *keysResponse) Decode(data io.Reader) error {
 	if string(header) == dataKeyword {
 		var keys []string
 		for {
-			key, isEnd, err := readResponseKey(buf)
+			header, err := r.decodeHeader(buf)
 			if err != nil {
 				return err
 			}
-			if isEnd {
+			if string(header) == endKeyword {
 				r.Keys = keys
 				return nil
+			}
+			var key string
+			_, err = fmt.Sscanf(string(header), "KEY %s", &key)
+			if err != nil {
+				return invalidResponseFormatError
 			}
 			keys = append(keys, key)
 		}
@@ -212,15 +218,24 @@ func (r *valuesResponse) Decode(data io.Reader) error {
 	if string(header) == dataKeyword {
 		var values []string
 		for {
-			value, isEnd, err := readResponseValue(buf)
+			header, err := r.decodeHeader(buf)
 			if err != nil {
 				return err
 			}
-			if isEnd {
+			if string(header) == endKeyword {
 				r.Values = values
 				return nil
 			}
-			values = append(values, value)
+			var length int
+			_, err = fmt.Sscanf(string(header), "VALUE %d", &length)
+			if err != nil {
+				return invalidResponseFormatError
+			}
+			value, err := readResponseValue(buf, length)
+			if err != nil {
+				return err
+			}
+			values = append(values, string(value))
 		}
 	}
 	return invalidResponseFormatError
@@ -251,101 +266,42 @@ func (r *fieldsResponse) Decode(data io.Reader) error {
 	if string(header) == dataKeyword {
 		fields := make(map[string]string)
 		for {
-			field, value, isEnd, err := readResponseField(buf)
+			header, err := r.decodeHeader(buf)
 			if err != nil {
 				return err
 			}
-			if isEnd {
+			if string(header) == endKeyword {
 				r.Fields = fields
 				return nil
 			}
-			fields[field] = value
+			var field string
+			var length int
+			_, err = fmt.Sscanf(string(header), "FIELD %s %d", &field, &length)
+			if err != nil {
+				return invalidResponseFormatError
+			}
+			value, err := readResponseValue(buf, length)
+			if err != nil {
+				return err
+			}
+			fields[field] = string(value)
 		}
 	}
 	return invalidResponseFormatError
 }
 
-func readResponseValue(buf *bufio.Reader) (string, bool, error) {
-	line, _, err := buf.ReadLine()
-	if err != nil {
-		return "", false, err
-	}
-	str := string(line)
-	if str == endKeyword {
-		return "", true, nil
-	}
-	var length int
-	_, err = fmt.Sscanf(str, "VALUE %d", &length)
-	if err != nil {
-		return "", false, invalidDataFormatError
-	}
+func readResponseValue(buf *bufio.Reader, length int) (string, error) {
 	value := make([]byte, length, length)
 	n, err := buf.Read(value)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	if n != length {
-		return "", false, fmt.Errorf("Value length is invalid")
+		return "", fmt.Errorf("Value length is invalid")
 	}
-	line, _, err = buf.ReadLine()
-	if len(line) > 0 || err != nil {
-		return "", false, fmt.Errorf("Value length is invalid")
+	rest, _, err := buf.ReadLine()
+	if len(rest) > 0 || err != nil {
+		return "", fmt.Errorf("Value length is invalid")
 	}
-	return string(value), false, nil
-}
-
-func readResponseField(buf *bufio.Reader) (string, string, bool, error) {
-	line, _, err := buf.ReadLine()
-	if err != nil {
-		return "", "", false, err
-	}
-	str := string(line)
-	if str == endKeyword {
-		return "", "", true, nil
-	}
-	var field string
-	var length int
-	_, err = fmt.Sscanf(str, "FIELD %s %d", &field, &length)
-	if err != nil {
-		return "", "", false, invalidDataFormatError
-	}
-	value := make([]byte, length, length)
-	n, err := buf.Read(value)
-	if err != nil {
-		return "", "", false, err
-	}
-	if n != length {
-		return "", "", false, fmt.Errorf("Value length is invalid")
-	}
-	line, _, err = buf.ReadLine()
-	if len(line) > 0 || err != nil {
-		return "", "", false, fmt.Errorf("Value length is invalid")
-	}
-	return field, string(value), false, nil
-}
-
-func readResponseKey(buf *bufio.Reader) (string, bool, error) {
-	line, _, err := buf.ReadLine()
-	if err != nil {
-		return "", false, err
-	}
-	str := string(line)
-	if str == endKeyword {
-		return "", true, nil
-	}
-	var key string
-	_, err = fmt.Sscanf(str, "KEY %s", &key)
-	if err != nil {
-		return "", false, invalidDataFormatError
-	}
-	return key, false, nil
-}
-
-func readLen(buf *bufio.Reader) (int, error) {
-	var length int
-	_, err := fmt.Fscanf(buf, "LEN %d\r\nEND\r\n", &length)
-	if err != nil {
-		return 0, invalidDataFormatError
-	}
-	return length, nil
+	return string(value), nil
 }
