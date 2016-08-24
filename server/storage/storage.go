@@ -1,5 +1,9 @@
 package storage
 
+import (
+	"errors"
+)
+
 type Storage interface {
 	Keys() []string
 	Get(key string) (string, error)
@@ -21,3 +25,13 @@ type Storage interface {
 	ListLen(key string) (int, error)
 	ListRange(key string, start, stop int) ([]string, error)
 }
+
+var (
+	KeyNotExistsError     = errors.New("Key does not exist")
+	KeyAlreadyExistsError = errors.New("Key already exists")
+	ListEmptyError        = errors.New("List is empty")
+	FieldNotExistError    = errors.New("Field does not exist")
+	KeyStringTypeError    = errors.New("Key type is not string")
+	KeyHashTypeError      = errors.New("Key type is not hash")
+	KeyListTypeError      = errors.New("Key type is not list")
+)

@@ -84,7 +84,7 @@ func (s *storage) gc(interval time.Duration) {
 func (s *storage) getItem(bucket *bolt.Bucket, key string) (*commonStorage.Item, error) {
 	data := bucket.Get([]byte(key))
 	if data == nil {
-		return nil, fmt.Errorf(`Key "%s" does not exist`, key)
+		return nil, commonStorage.KeyNotExistsError
 	}
 
 	dec := gob.NewDecoder(bytes.NewBuffer(data))
@@ -97,8 +97,7 @@ func (s *storage) getItem(bucket *bolt.Bucket, key string) (*commonStorage.Item,
 	if item.IsAlive() {
 		return &item, nil
 	} else {
-		//bucket.Delete([]byte(key))
-		return nil, fmt.Errorf(`Key "%s" does not exist`, key)
+		return nil, commonStorage.KeyNotExistsError
 	}
 }
 
@@ -172,7 +171,7 @@ func (s *storage) Set(key, value string, ttl uint64) error {
 		bucket := tx.Bucket(defaultBucketName)
 		item, _ := s.getItem(bucket, key)
 		if item != nil {
-			return fmt.Errorf(`Key "%s" already exists`, key)
+			return commonStorage.KeyAlreadyExistsError
 		}
 
 		item = commonStorage.NewItem(value, ttl)
@@ -212,7 +211,7 @@ func (s *storage) HashCreate(key string, ttl uint64) error {
 		bucket := tx.Bucket(defaultBucketName)
 		item, _ := s.getItem(bucket, key)
 		if item != nil {
-			return fmt.Errorf(`Key "%s" already exists`, key)
+			return commonStorage.KeyAlreadyExistsError
 		}
 
 		item = commonStorage.NewItem(make(commonStorage.Hash), ttl)

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"container/list"
-	"fmt"
 	"time"
 )
 
@@ -26,7 +25,7 @@ func (i *Item) CastString() (string, error) {
 	if value, ok := i.Value.(string); ok {
 		return value, nil
 	} else {
-		return "", fmt.Errorf(`Key type is not string`)
+		return "", KeyStringTypeError
 	}
 }
 
@@ -34,7 +33,7 @@ func (i *Item) CastHash() (Hash, error) {
 	if hash, ok := i.Value.(Hash); ok {
 		return hash, nil
 	} else {
-		return nil, fmt.Errorf(`Key type is not hash`)
+		return nil, KeyHashTypeError
 	}
 }
 
@@ -42,7 +41,7 @@ func (i *Item) CastList() (*list.List, error) {
 	if list, ok := i.Value.(*list.List); ok {
 		return list, nil
 	} else {
-		return nil, fmt.Errorf(`Key type is not list`)
+		return nil, KeyListTypeError
 	}
 }
 

@@ -2,7 +2,6 @@ package memory
 
 import (
 	"container/list"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -58,7 +57,7 @@ func (s *storage) getItem(key string) (*commonStorage.Item, error) {
 			return item, nil
 		}
 	}
-	return nil, fmt.Errorf(`Key "%s" does not exist`, key)
+	return nil, commonStorage.KeyNotExistsError
 }
 
 func (s *storage) saveItem(key string, item *commonStorage.Item) {
@@ -128,7 +127,7 @@ func (s *storage) Set(key, value string, ttl uint64) error {
 
 	item, _ := s.getItem(key)
 	if item != nil {
-		return fmt.Errorf(`Key "%s" already exists`, key)
+		return commonStorage.KeyAlreadyExistsError
 	}
 
 	s.saveItem(key, commonStorage.NewItem(value, ttl))
@@ -169,7 +168,7 @@ func (s *storage) HashCreate(key string, ttl uint64) error {
 
 	item, _ := s.getItem(key)
 	if item != nil {
-		return fmt.Errorf(`Key "%s" already exists`, key)
+		return commonStorage.KeyAlreadyExistsError
 	}
 	s.saveItem(key, commonStorage.NewItem(make(commonStorage.Hash), ttl))
 	return nil
@@ -263,7 +262,7 @@ func (s *storage) ListCreate(key string, ttl uint64) error {
 
 	item, _ := s.getItem(key)
 	if item != nil {
-		return fmt.Errorf(`Key "%s" already exists`, key)
+		return commonStorage.KeyAlreadyExistsError
 	}
 	s.saveItem(key, commonStorage.NewItem(list.New(), ttl))
 	return nil
@@ -284,7 +283,7 @@ func (s *storage) ListLeftPop(key string) (string, error) {
 		list.Remove(e)
 		return e.Value.(string), nil
 	}
-	return "", fmt.Errorf(`List "%s" is empty`, key)
+	return "", commonStorage.ListEmptyError
 }
 
 // ListRightPop pops value from the list ending.
@@ -302,7 +301,7 @@ func (s *storage) ListRightPop(key string) (string, error) {
 		list.Remove(e)
 		return e.Value.(string), nil
 	}
-	return "", fmt.Errorf(`List "%s" is empty`, key)
+	return "", commonStorage.ListEmptyError
 }
 
 // ListLeftPush adds value to the list beginning. Error will occur if key doesn't exist or key type is not list.
