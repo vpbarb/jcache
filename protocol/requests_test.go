@@ -28,7 +28,7 @@ func (s *RequestsTestSuite) TestRequestDecode(c *C) {
 func (s *RequestsTestSuite) TestRequestDecodeError(c *C) {
 	request := newRequest("CMD")
 	err := request.Decode(bytes.NewBufferString("key\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestKeyEncode(c *C) {
@@ -60,7 +60,7 @@ func (s *RequestsTestSuite) TestKeyDecodeError(c *C) {
 	request := newKeyRequest("CMD")
 	var err error
 	err = request.Decode(&bytes.Buffer{})
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestSetEncode(c *C) {
@@ -92,13 +92,13 @@ func (s *RequestsTestSuite) TestSetDecodeError(c *C) {
 	request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 0\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 0 str\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 3 5\r\nv\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
@@ -118,7 +118,7 @@ func (s *RequestsTestSuite) TestSetDecodeSlowConnectionError(c *C) {
 		conn := &slowConn{buf: bufio.NewReader(bytes.NewBufferString(str))}
 		request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
 		err := request.Decode(conn)
-		c.Assert(err, ErrorMatches, "Invalid command format")
+		c.Assert(err, ErrorMatches, "Invalid request format")
 	}
 }
 
@@ -153,11 +153,11 @@ func (s *RequestsTestSuite) TestKeyValueDecodeError(c *C) {
 	request := newKeyValueRequest("CMD")
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key \r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key str\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 5\r\nv\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
@@ -198,9 +198,9 @@ func (s *RequestsTestSuite) TestKeyFieldDecodeError(c *C) {
 	request := newKeyFieldRequest("CMD")
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestKeyTTLEncode(c *C) {
@@ -234,11 +234,11 @@ func (s *RequestsTestSuite) TestKeyTTLDecodeError(c *C) {
 	request := newKeyTTLRequest("CMD")
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key \r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key str\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestKeyFieldValueEncode(c *C) {
@@ -279,13 +279,13 @@ func (s *RequestsTestSuite) TestKeyFieldValueDecodeError(c *C) {
 	request := newKeyFieldValueRequest("CMD")
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key field\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key field str\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key field 20\r\nvalue\r\nvalue\r\n"))
 	c.Assert(err, ErrorMatches, "Value length is invalid")
 }
@@ -323,13 +323,13 @@ func (s *RequestsTestSuite) TestListRangeDecodeError(c *C) {
 	request := &listRangeRequest{keyRequest: newKeyRequest("CMD")}
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 1\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 1 str\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestAuthEncode(c *C) {
@@ -368,11 +368,11 @@ func (s *RequestsTestSuite) TestAuthDecodeError(c *C) {
 	request := &authRequest{request: newRequest("CMD")}
 	var err error
 	err = request.Decode(bytes.NewBufferString("\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("user\r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("user \r\n"))
-	c.Assert(err, ErrorMatches, "Invalid command format")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 // slowConn immitates slow connection with timeout before each byte reading

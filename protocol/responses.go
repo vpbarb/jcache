@@ -2,13 +2,14 @@ package protocol
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 )
 
 var (
-	invalidResponseFormatError = fmt.Errorf("Invalid response format")
+	invalidResponseFormatError = errors.New("Invalid response format")
 )
 
 type response struct {
@@ -294,11 +295,11 @@ func readResponseValue(buf *bufio.Reader, length int) (string, error) {
 		return "", err
 	}
 	if n != length {
-		return "", fmt.Errorf("Value length is invalid")
+		return "", invalidValueLengthError
 	}
 	rest, _, err := buf.ReadLine()
 	if len(rest) > 0 || err != nil {
-		return "", fmt.Errorf("Value length is invalid")
+		return "", invalidValueLengthError
 	}
 	return string(value), nil
 }

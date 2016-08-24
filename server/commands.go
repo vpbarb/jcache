@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"errors"
 	"io"
 
 	"github.com/Barberrrry/jcache/protocol"
@@ -10,6 +10,10 @@ import (
 )
 
 type command func(data io.Reader) []byte
+
+var (
+	invalidCredentialsError = errors.New("Invalid credentials")
+)
 
 func encodeError(err error) []byte {
 	response := protocol.NewErrorResponse(err)
@@ -231,7 +235,7 @@ func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) comma
 			if htpasswdFile == nil || htpasswdFile.Validate(request.User, request.Password) {
 				session.authorize()
 			} else {
-				response.Error = fmt.Errorf("Invalid credentials")
+				response.Error = invalidCredentialsError
 			}
 		})
 	}

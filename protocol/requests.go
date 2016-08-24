@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -11,7 +12,11 @@ const (
 )
 
 var (
-	invalidCommandFormatError = fmt.Errorf("Invalid command format")
+	invalidRequestFormatError  = errors.New("Invalid request format")
+	invalidUserFormatError     = errors.New("User is not valid")
+	invalidPasswordFormatError = errors.New("Password is not valid")
+	invalidKeyFormatError      = errors.New("Key is not valid")
+	invalidValueLengthError    = errors.New("Value length is invalid")
 
 	keyRegexp = regexp.MustCompile("^" + keyTemplate + "$")
 )
@@ -48,10 +53,10 @@ type authRequest struct {
 
 func (r *authRequest) validate() error {
 	if !keyRegexp.MatchString(r.User) {
-		return fmt.Errorf("User is not valid")
+		return invalidUserFormatError
 	}
 	if !keyRegexp.MatchString(r.Password) {
-		return fmt.Errorf("Password is not valid")
+		return invalidPasswordFormatError
 	}
 	return nil
 }
@@ -62,7 +67,7 @@ func (r *authRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %s\r\n", &user, &password)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	r.User = user
@@ -86,7 +91,7 @@ func (r *keyRequest) validate() error {
 	if keyRegexp.MatchString(r.Key) {
 		return nil
 	}
-	return fmt.Errorf("Key is not valid")
+	return invalidKeyFormatError
 }
 
 func (r *keyRequest) Decode(data io.Reader) error {
@@ -94,7 +99,7 @@ func (r *keyRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s\r\n", &key)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	r.Key = key
@@ -123,7 +128,7 @@ func (r *keyTTLRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %d\r\n", &key, &ttl)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	r.Key = key
@@ -153,7 +158,7 @@ func (r *keyValueRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %d\r\n", &key, &length)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	value, err := readRequestValue(data, length)
@@ -187,7 +192,7 @@ func (r *keyFieldRequest) validate() error {
 		return err
 	}
 	if !keyRegexp.MatchString(r.Field) {
-		return fmt.Errorf("Field is not valid")
+		return invalidKeyFormatError
 	}
 	return nil
 }
@@ -198,7 +203,7 @@ func (r *keyFieldRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %s\r\n", &key, &field)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	r.Key = key
@@ -229,7 +234,7 @@ func (r *keyFieldValueRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %s %d\r\n", &key, &field, &length)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	value, err := readRequestValue(data, length)
@@ -266,7 +271,7 @@ func (r *setRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %d %d\r\n", &key, &ttl, &length)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	value, err := readRequestValue(data, length)
@@ -299,7 +304,7 @@ func (r *listRangeRequest) Decode(data io.Reader) error {
 
 	_, err := fmt.Fscanf(data, "%s %d %d\r\n", &key, &start, &stop)
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 
 	r.Key = key
@@ -319,10 +324,10 @@ func readRequestValue(data io.Reader, length int) ([]byte, error) {
 	value := make([]byte, length, length)
 	n, err := data.Read(value)
 	if err != nil {
-		return nil, invalidCommandFormatError
+		return nil, invalidRequestFormatError
 	}
 	if n != length {
-		return nil, fmt.Errorf("Value length is invalid")
+		return nil, invalidValueLengthError
 	}
 	if err := readRequestEnd(data); err != nil {
 		return nil, err
@@ -333,7 +338,7 @@ func readRequestValue(data io.Reader, length int) ([]byte, error) {
 func readRequestEnd(data io.Reader) error {
 	_, err := fmt.Fscanf(data, "\r\n")
 	if err != nil {
-		return invalidCommandFormatError
+		return invalidRequestFormatError
 	}
 	return nil
 }
