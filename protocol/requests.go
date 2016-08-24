@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"fmt"
-	"gopkg.in/bufio.v1"
 	"io"
 	"regexp"
 )
@@ -332,11 +331,8 @@ func readRequestValue(data io.Reader, length int) ([]byte, error) {
 }
 
 func readRequestEnd(data io.Reader) error {
-	end, _, err := bufio.NewReader(data).ReadLine()
+	_, err := fmt.Fscanf(data, "\r\n")
 	if err != nil {
-		return invalidCommandFormatError
-	}
-	if len(end) > 0 {
 		return invalidCommandFormatError
 	}
 	return nil

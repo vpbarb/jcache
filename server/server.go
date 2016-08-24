@@ -13,9 +13,10 @@ type server struct {
 	commands     map[string]command
 	storage      storage.Storage
 	htpasswdFile *htpasswd.HtpasswdFile
+	logger       *log.Logger
 }
 
-func New(storage storage.Storage, htpasswdPath string) *server {
+func New(storage storage.Storage, htpasswdPath string, logger *log.Logger) *server {
 	s := &server{
 		storage: storage,
 		commands: map[string]command{
@@ -39,14 +40,15 @@ func New(storage storage.Storage, htpasswdPath string) *server {
 			protocol.NewListLenRequest().Command():       newListLenCommand(storage),
 			protocol.NewListRangeRequest().Command():     newListRangeCommand(storage),
 		},
+		logger: logger,
 	}
 
 	if htpasswdPath != "" {
 		var err error
 		if s.htpasswdFile, err = htpasswd.NewHtpasswdFromFile(htpasswdPath); err == nil {
-			log.Print("server supports authentication")
+			s.logger.Print("server supports authentication")
 		} else {
-			log.Printf("erron on loading htpasswd file: %s", err)
+			s.logger.Printf("erron on loading htpasswd file: %s", err)
 		}
 	}
 
@@ -54,7 +56,7 @@ func New(storage storage.Storage, htpasswdPath string) *server {
 }
 
 func (s *server) ListenAndServe(addr string) {
-	log.Printf("listen on %s", addr)
+	s.logger.Printf("listen on %s", addr)
 	listener, _ := net.Listen("tcp", addr)
 
 	for {
@@ -64,6 +66,6 @@ func (s *server) ListenAndServe(addr string) {
 			continue
 		}
 
-		go newSession(conn.RemoteAddr().String(), conn, s.commands, s.htpasswdFile).start()
+		go newSession(conn.RemoteAddr().String(), conn, s.commands, s.htpasswdFile, s.logger).start()
 	}
 }

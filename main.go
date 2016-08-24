@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 	"time"
 
 	"github.com/Barberrrry/jcache/server"
@@ -54,6 +55,6 @@ func main() {
 		}
 	}
 
-	s := server.New(storage, *htpasswdPath)
+	s := server.New(storage, *htpasswdPath, log.New(os.Stdout, "", log.LstdFlags))
 	s.ListenAndServe(*listen)
 }

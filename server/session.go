@@ -17,13 +17,15 @@ type session struct {
 	sessionCommands map[string]command
 	isAuthRequired  bool
 	isAuthorized    bool
+	logger          *log.Logger
 }
 
-func newSession(id string, rw io.ReadWriter, commands map[string]command, htpasswdFile *htpasswd.HtpasswdFile) *session {
+func newSession(id string, rw io.ReadWriter, commands map[string]command, htpasswdFile *htpasswd.HtpasswdFile, logger *log.Logger) *session {
 	s := &session{
 		id:             id,
 		rw:             rw,
 		serverCommands: commands,
+		logger:         logger,
 	}
 
 	if htpasswdFile != nil {
@@ -72,5 +74,5 @@ func (s *session) authorize() {
 }
 
 func (s *session) log(message string) {
-	log.Printf("[%s] %s", s.id, message)
+	s.logger.Printf("[%s] %s", s.id, message)
 }
