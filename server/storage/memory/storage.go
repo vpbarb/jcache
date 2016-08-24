@@ -4,27 +4,26 @@ import (
 	"container/list"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	commonStorage "github.com/Barberrrry/jcache/server/storage"
-	"github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru/simplelru"
 )
 
 type storage struct {
-	cache *lru.TwoQueueCache
+	lru *simplelru.LRU
+	mu  sync.RWMutex
 }
 
 // NewStorage creates new memory storage
 func NewStorage(size int, gcInterval time.Duration) (*storage, error) {
-	if size < 2 {
-		return nil, fmt.Errorf("Size should be 2 or more")
-	}
-	cache, err := lru.New2Q(size)
+	cache, err := simplelru.NewLRU(size, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &storage{cache: cache}
+	s := &storage{lru: cache}
 
 	go s.gc(gcInterval)
 
@@ -34,23 +33,27 @@ func NewStorage(size int, gcInterval time.Duration) (*storage, error) {
 func (s *storage) gc(interval time.Duration) {
 	for _ = range time.Tick(interval) {
 		var deleteKeys []interface{}
-		for _, key := range s.cache.Keys() {
-			if raw, exists := s.cache.Get(key); exists {
+		s.mu.RLock()
+		for _, key := range s.lru.Keys() {
+			if raw, exists := s.lru.Get(key); exists {
 				if item, castOk := raw.(*commonStorage.Item); castOk && !item.IsAlive() {
 					deleteKeys = append(deleteKeys, key)
 				}
 			}
 		}
+		s.mu.RUnlock()
 		if len(deleteKeys) > 0 {
 			for _, key := range deleteKeys {
-				s.cache.Remove(key)
+				s.mu.Lock()
+				s.lru.Remove(key)
+				s.mu.Unlock()
 			}
 		}
 	}
 }
 
 func (s *storage) getItem(key string) (*commonStorage.Item, error) {
-	if raw, exists := s.cache.Get(key); exists {
+	if raw, exists := s.lru.Get(key); exists {
 		if item, castOk := raw.(*commonStorage.Item); castOk && item.IsAlive() {
 			return item, nil
 		}
@@ -59,11 +62,11 @@ func (s *storage) getItem(key string) (*commonStorage.Item, error) {
 }
 
 func (s *storage) saveItem(key string, item *commonStorage.Item) {
-	s.cache.Add(key, item)
+	s.lru.Add(key, item)
 }
 
 func (s *storage) deleteItem(key string) {
-	s.cache.Remove(key)
+	s.lru.Remove(key)
 }
 
 func (s *storage) getHash(key string) (commonStorage.Hash, error) {
@@ -92,8 +95,11 @@ func (s *storage) getList(key string) (*list.List, error) {
 
 // Keys returns list of all keys
 func (s *storage) Keys() []string {
-	keys := make([]string, 0, s.cache.Len())
-	for _, key := range s.cache.Keys() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	keys := make([]string, 0, s.lru.Len())
+	for _, key := range s.lru.Keys() {
 		if item, err := s.getItem(key.(string)); err == nil && item.IsAlive() {
 			keys = append(keys, key.(string))
 		}
@@ -104,6 +110,9 @@ func (s *storage) Keys() []string {
 
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	item, err := s.getItem(key)
 	if err != nil {
 		return "", err
@@ -114,6 +123,9 @@ func (s *storage) Get(key string) (string, error) {
 // Set value of specified key with ttl. Use zero ttl if key should exist forever.
 // Error will occur if key already exists.
 func (s *storage) Set(key, value string, ttl uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	item, _ := s.getItem(key)
 	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
@@ -125,6 +137,9 @@ func (s *storage) Set(key, value string, ttl uint64) error {
 
 // Update value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Update(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	item, err := s.getItem(key)
 	if err != nil {
 		return err
@@ -136,6 +151,9 @@ func (s *storage) Update(key, value string) error {
 
 // Delete specified key. Error will occur if key doesn't exist. It works for any key type.
 func (s *storage) Delete(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	_, err := s.getItem(key)
 	if err != nil {
 		return err
@@ -146,6 +164,9 @@ func (s *storage) Delete(key string) error {
 
 // HashCreate creates new hash with specified key and ttl. Use zero ttl if key should exist forever.
 func (s *storage) HashCreate(key string, ttl uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	item, _ := s.getItem(key)
 	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
@@ -157,6 +178,9 @@ func (s *storage) HashCreate(key string, ttl uint64) error {
 // HashGet returns value of specified field of key.
 // Error will occur if key or field doesn't exist or key type is not hash.
 func (s *storage) HashGet(key, field string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	hash, err := s.getHash(key)
 	if err != nil {
 		return "", err
@@ -166,11 +190,17 @@ func (s *storage) HashGet(key, field string) (string, error) {
 
 // HashGetAll returns all hash values of specified key. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashGetAll(key string) (map[string]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.getHash(key)
 }
 
 // HashSet sets field value of specified key. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashSet(key, field, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	hash, err := s.getHash(key)
 	if err != nil {
 		return err
@@ -181,6 +211,9 @@ func (s *storage) HashSet(key, field, value string) error {
 
 // HashDelete deletes field from hash. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashDelete(key, field string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	hash, err := s.getHash(key)
 	if err != nil {
 		return err
@@ -195,6 +228,9 @@ func (s *storage) HashDelete(key, field string) error {
 
 // HashLen returns count of hash fields. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashLen(key string) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	hash, err := s.getHash(key)
 	if err != nil {
 		return 0, err
@@ -204,6 +240,9 @@ func (s *storage) HashLen(key string) (int, error) {
 
 // HashKeys returns list of all hash fields. Error will occur if key doesn't exist or key type is not hash.
 func (s *storage) HashKeys(key string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	hash, err := s.getHash(key)
 	if err != nil {
 		return nil, err
@@ -219,6 +258,9 @@ func (s *storage) HashKeys(key string) ([]string, error) {
 
 // ListCreate creates new list with specified key and ttl. Use zero ttl if key should exist forever.
 func (s *storage) ListCreate(key string, ttl uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	item, _ := s.getItem(key)
 	if item != nil {
 		return fmt.Errorf(`Key "%s" already exists`, key)
@@ -230,6 +272,9 @@ func (s *storage) ListCreate(key string, ttl uint64) error {
 // ListLeftPop pops value from the list beginning.
 // Error will occur if key doesn't exist, key type is not list or list is empty.
 func (s *storage) ListLeftPop(key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	list, err := s.getList(key)
 	if err != nil {
 		return "", err
@@ -245,6 +290,9 @@ func (s *storage) ListLeftPop(key string) (string, error) {
 // ListRightPop pops value from the list ending.
 // Error will occur if key doesn't exist, key type is not list or list is empty.
 func (s *storage) ListRightPop(key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	list, err := s.getList(key)
 	if err != nil {
 		return "", err
@@ -259,6 +307,9 @@ func (s *storage) ListRightPop(key string) (string, error) {
 
 // ListLeftPush adds value to the list beginning. Error will occur if key doesn't exist or key type is not list.
 func (s *storage) ListLeftPush(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	list, err := s.getList(key)
 	if err != nil {
 		return err
@@ -270,6 +321,9 @@ func (s *storage) ListLeftPush(key, value string) error {
 
 // ListRightPush adds value to the list ending. Error will occur if key doesn't exist or key type is not list.
 func (s *storage) ListRightPush(key, value string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	list, err := s.getList(key)
 	if err != nil {
 		return err
@@ -281,6 +335,9 @@ func (s *storage) ListRightPush(key, value string) error {
 
 // ListLen returns count of elements in the list. Error will occur if key doesn't exist or key type is not list.
 func (s *storage) ListLen(key string) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	list, err := s.getList(key)
 	if err != nil {
 		return 0, err
@@ -292,6 +349,9 @@ func (s *storage) ListLen(key string) (int, error) {
 // ListRange returns list of elements from the list from start to stop index.
 // Error will occur if key doesn't exist or key type is not list.
 func (s *storage) ListRange(key string, start, stop int) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	list, err := s.getList(key)
 	if err != nil {
 		return nil, err
