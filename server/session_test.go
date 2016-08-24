@@ -18,7 +18,7 @@ type SessionTestSuite struct{}
 
 var _ = Suite(&SessionTestSuite{})
 
-func (s *SessionTestSuite) prepareCommands() map[string]command {
+func (s *SessionTestSuite) prepareDummyCommands() map[string]command {
 	return map[string]command{
 		protocol.NewGetRequest().Command(): func(data io.Reader) []byte {
 			request := protocol.NewGetRequest()
@@ -58,7 +58,7 @@ func (s *SessionTestSuite) prepareCommands() map[string]command {
 }
 
 func (s *SessionTestSuite) benchmarkCommand(c *C, data []byte) {
-	commands := s.prepareCommands()
+	commands := s.prepareDummyCommands()
 
 	conn := newTestConn()
 
@@ -99,6 +99,35 @@ func (s *SessionTestSuite) BenchmarkListRange(c *C) {
 	r.Key = "list"
 	data, _ := r.Encode()
 	s.benchmarkCommand(c, data)
+}
+
+func (s *SessionTestSuite) TestCommand(c *C) {
+	commands := map[string]command{
+		protocol.NewGetRequest().Command(): func(data io.Reader) []byte {
+			request := protocol.NewGetRequest()
+			response := protocol.NewGetResponse()
+			return run(data, request, response, func() {
+				c.Assert(request.Key, Equals, "key")
+				response.Value = "value"
+			})
+		},
+	}
+
+	conn := newTestConn()
+
+	go newSession("test", conn, commands, nil, log.New(&bytes.Buffer{}, "", 0)).start()
+
+	request := protocol.NewGetRequest()
+	request.Key = "key"
+	data, _ := request.Encode()
+
+	out := conn.send(data)
+	conn.close()
+
+	response := protocol.NewGetResponse()
+	err := response.Decode(bytes.NewBuffer(out))
+	c.Assert(err, IsNil)
+	c.Assert(response.Value, Equals, "value")
 }
 
 type testConn struct {
