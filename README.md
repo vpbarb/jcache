@@ -173,10 +173,58 @@ Examples:
 
 All commands related to specific value type return error if client tries to work with key of another type (except of DEL command which is universal).
 
+Example:
+
+	--> HCREATE hash 0\r\n
+	<-- OK\r\n
+	--> GET hash
+	<-- ERROR Key type is not string
+
 ## Server
 ###Storage types
+There are 3 implemented types of storages:
+
+ - memory: simple in-memory storage with LRU algorithm limited by N stored values;
+ - multi_memory: in-memory storage with sharding by key;
+ - bolt: persistent storage based on [Bolt](https://github.com/boltdb/bolt).
+
+Type of storage and optional type-related parameters may be defined by run options.
+
+###How to build
 TODO
+
 ###How to run
-TODO
+Run options:
+
+	-htpasswd string
+		Path to .htpasswd file for authentication. Leave blank to disable authentication.
+	-listen string
+       	Host and port to listen connection (default ":9999")
+	-storage_boltdb_path string
+       	Path to BoltDB file
+	-storage_gc_interval duration
+       	Storage GC interval (default 1m0s)
+	-storage_memory_size uint
+       	Max number of stored elements (default 10000)
+	-storage_multi_memory_count uint
+       	Number of storages inside multi memory storage (default 1)
+	-storage_type value
+       	Type of storage (memory, multi_memory) (default memory)
+
+Example:
+
+	jcache -listen=127.0.0.1:9999 storage_type=bolt storage_boltdb_path=bold.db
+
 ## Client
-TODO
+Import client package:
+		
+	import "github.com/Barberrrry/jcache/client"
+
+Client package support [glide](github.com/Masterminds/glide), so you can just run `glide up` as usual. Or you may download client dependencies manually:
+
+	go get "gopkg.in/fatih/pool.v2"
+
+Example of client usage:
+
+	client, clientErr := client.New("127.0.0.1:9999", "admin", "admin", 5*time.Second, 5)
+	setErr := client.Set("key", "value1, 3600)
