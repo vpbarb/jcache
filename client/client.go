@@ -298,7 +298,7 @@ func (c *Client) connFactory() (net.Conn, error) {
 	return conn, nil
 }
 
-func (c *Client) call(request protocol.Request, response protocol.Response) error {
+func (c *Client) call(request protocol.Encoder, response protocol.Decoder) error {
 	conn, err := c.connPool.Get()
 	if err != nil {
 		return err
@@ -308,7 +308,7 @@ func (c *Client) call(request protocol.Request, response protocol.Response) erro
 	return c.callRW(conn, request, response)
 }
 
-func (c *Client) callRW(rw io.ReadWriter, request protocol.Request, response protocol.Response) error {
+func (c *Client) callRW(rw io.ReadWriter, request protocol.Encoder, response protocol.Decoder) error {
 	err := request.Encode(rw)
 	if err != nil {
 		return err

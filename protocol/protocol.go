@@ -5,13 +5,11 @@ import (
 	"io"
 )
 
-type Request interface {
+type Encoder interface {
 	Encode(io.Writer) error
-	Decode(io.Reader) error
 }
 
-type Response interface {
-	Encode(io.Writer) error
+type Decoder interface {
 	Decode(io.Reader) error
 }
 

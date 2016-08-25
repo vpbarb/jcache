@@ -20,7 +20,7 @@ func writeError(writer io.Writer, err error) {
 	response.Encode(writer)
 }
 
-func run(rw io.ReadWriter, request protocol.Request, response protocol.Response, action func()) {
+func run(rw io.ReadWriter, request protocol.Decoder, response protocol.Encoder, action func()) {
 	err := request.Decode(rw)
 	if err != nil {
 		writeError(rw, err)
