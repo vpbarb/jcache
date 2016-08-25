@@ -147,6 +147,11 @@ Command returns sublist of values from and to specified indexes. If specified in
 	LRANGE <key> <start> <stop>\r\n
 	COUNT <number_of_values>\r\n[VALUE <value_length>\r\n<value>\r\n...]
 
+Example:
+
+	LRANGE some_list 0 2\r\n
+	COUNT 3\r\nVALUE 10\r\nsome_value\r\nVALUE 13\r\nanother_value\r\nVALUE 0\r\n\r\n
+
 ####AUTH
 Command authenticate user within the opened connection. If server is started with authentication support, then AUTH command must be first after connection open. If authentication is not passed, then all commands will return error.
 
