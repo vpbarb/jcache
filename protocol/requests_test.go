@@ -14,9 +14,10 @@ var _ = Suite(&RequestsTestSuite{})
 
 func (s *RequestsTestSuite) TestRequestEncode(c *C) {
 	request := newRequest("CMD")
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD\r\n"))
 }
 
 func (s *RequestsTestSuite) TestRequestDecode(c *C) {
@@ -34,18 +35,21 @@ func (s *RequestsTestSuite) TestRequestDecodeError(c *C) {
 func (s *RequestsTestSuite) TestKeyEncode(c *C) {
 	request := newKeyRequest("CMD")
 	request.Key = "key"
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key\r\n"))
 }
 
 func (s *RequestsTestSuite) TestKeyEncodeError(c *C) {
 	request := newKeyRequest("CMD")
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 }
 
@@ -68,14 +72,16 @@ func (s *RequestsTestSuite) TestSetEncode(c *C) {
 	request.Key = "key"
 	request.Value = "value"
 	request.TTL = 3
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key 3 5\r\nvalue\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key 3 5\r\nvalue\r\n"))
 }
 
 func (s *RequestsTestSuite) TestSetEncodeError(c *C) {
 	request := &setRequest{keyValueRequest: newKeyValueRequest("CMD")}
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 }
 
@@ -126,18 +132,22 @@ func (s *RequestsTestSuite) TestKeyValueEncode(c *C) {
 	request := newKeyValueRequest("CMD")
 	request.Key = "key"
 	request.Value = "value"
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key 5\r\nvalue\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key 5\r\nvalue\r\n"))
 }
 
 func (s *RequestsTestSuite) TestKeyValueEncodeError(c *C) {
 	request := newKeyValueRequest("CMD")
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
+
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 }
 
@@ -166,23 +176,28 @@ func (s *RequestsTestSuite) TestKeyFieldEncode(c *C) {
 	request := newKeyFieldRequest("CMD")
 	request.Key = "key"
 	request.Field = "field"
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key field\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key field\r\n"))
 }
 
 func (s *RequestsTestSuite) TestKeyFieldEncodeError(c *C) {
 	request := newKeyFieldRequest("CMD")
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
+
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "key"
 	request.Field = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Field is not valid")
 }
 
@@ -207,18 +222,22 @@ func (s *RequestsTestSuite) TestKeyTTLEncode(c *C) {
 	request := newKeyTTLRequest("CMD")
 	request.Key = "key"
 	request.TTL = 5
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key 5\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key 5\r\n"))
 }
 
 func (s *RequestsTestSuite) TestKeyTTLEncodeError(c *C) {
 	request := newKeyTTLRequest("CMD")
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
+
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 }
 
@@ -246,23 +265,27 @@ func (s *RequestsTestSuite) TestKeyFieldValueEncode(c *C) {
 	request.Key = "key"
 	request.Field = "field"
 	request.Value = "value"
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key field 5\r\nvalue\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key field 5\r\nvalue\r\n"))
 }
 
 func (s *RequestsTestSuite) TestKeyFieldValueEncodeError(c *C) {
 	request := newKeyFieldValueRequest("CMD")
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "key"
 	request.Field = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Field is not valid")
 }
 
@@ -295,18 +318,21 @@ func (s *RequestsTestSuite) TestListRangeEncode(c *C) {
 	request.Key = "key"
 	request.Start = 1
 	request.Stop = 3
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD key 1 3\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD key 1 3\r\n"))
 }
 
 func (s *RequestsTestSuite) TestListRangeEncodeError(c *C) {
 	request := &listRangeRequest{keyRequest: newKeyRequest("CMD")}
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 
 	request.Key = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Key is not valid")
 }
 
@@ -336,23 +362,27 @@ func (s *RequestsTestSuite) TestAuthEncode(c *C) {
 	request := &authRequest{request: newRequest("CMD")}
 	request.User = "user"
 	request.Password = "password"
-	data, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, IsNil)
-	c.Assert(data, DeepEquals, []byte("CMD user password\r\n"))
+	c.Assert(data.Bytes(), DeepEquals, []byte("CMD user password\r\n"))
 }
 
 func (s *RequestsTestSuite) TestAuthEncodeError(c *C) {
 	request := &authRequest{request: newRequest("CMD")}
-	_, err := request.Encode()
+	data := &bytes.Buffer{}
+	err := request.Encode(data)
 	c.Assert(err, ErrorMatches, "User is not valid")
 
 	request.User = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "User is not valid")
 
 	request.User = "user"
 	request.Password = "+"
-	_, err = request.Encode()
+	data = &bytes.Buffer{}
+	err = request.Encode(data)
 	c.Assert(err, ErrorMatches, "Password is not valid")
 }
 

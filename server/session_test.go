@@ -20,22 +20,22 @@ var _ = Suite(&SessionTestSuite{})
 
 func (s *SessionTestSuite) prepareDummyCommands() map[string]command {
 	return map[string]command{
-		protocol.NewGetRequest().Command(): func(data io.Reader) []byte {
+		protocol.NewGetRequest().Command(): func(rw io.ReadWriter) {
 			request := protocol.NewGetRequest()
 			response := protocol.NewGetResponse()
-			return run(data, request, response, func() {
+			run(rw, request, response, func() {
 				response.Value = "value"
 			})
 		},
-		protocol.NewSetRequest().Command(): func(data io.Reader) []byte {
+		protocol.NewSetRequest().Command(): func(rw io.ReadWriter) {
 			request := protocol.NewSetRequest()
 			response := protocol.NewSetResponse()
-			return run(data, request, response, func() {})
+			run(rw, request, response, func() {})
 		},
-		protocol.NewHashGetAllRequest().Command(): func(data io.Reader) []byte {
+		protocol.NewHashGetAllRequest().Command(): func(rw io.ReadWriter) {
 			request := protocol.NewHashGetAllRequest()
 			response := protocol.NewHashGetAllResponse()
-			return run(data, request, response, func() {
+			run(rw, request, response, func() {
 				response.Fields = map[string]string{
 					"key1": "value1",
 					"key2": "value2",
@@ -43,10 +43,10 @@ func (s *SessionTestSuite) prepareDummyCommands() map[string]command {
 				}
 			})
 		},
-		protocol.NewListRangeRequest().Command(): func(data io.Reader) []byte {
+		protocol.NewListRangeRequest().Command(): func(rw io.ReadWriter) {
 			request := protocol.NewListRangeRequest()
 			response := protocol.NewListRangeResponse()
-			return run(data, request, response, func() {
+			run(rw, request, response, func() {
 				response.Values = []string{
 					"value1",
 					"value2",
@@ -74,8 +74,9 @@ func (s *SessionTestSuite) benchmarkCommand(c *C, data []byte) {
 func (s *SessionTestSuite) BenchmarkGet(c *C) {
 	r := protocol.NewGetRequest()
 	r.Key = "key"
-	data, _ := r.Encode()
-	s.benchmarkCommand(c, data)
+	data := &bytes.Buffer{}
+	r.Encode(data)
+	s.benchmarkCommand(c, data.Bytes())
 }
 
 func (s *SessionTestSuite) BenchmarkSet(c *C) {
@@ -83,30 +84,33 @@ func (s *SessionTestSuite) BenchmarkSet(c *C) {
 	r.Key = "key"
 	r.Value = "value"
 	r.TTL = 60
-	data, _ := r.Encode()
-	s.benchmarkCommand(c, data)
+	data := &bytes.Buffer{}
+	r.Encode(data)
+	s.benchmarkCommand(c, data.Bytes())
 }
 
 func (s *SessionTestSuite) BenchmarkHashGetAll(c *C) {
 	r := protocol.NewHashGetAllRequest()
 	r.Key = "hash"
-	data, _ := r.Encode()
-	s.benchmarkCommand(c, data)
+	data := &bytes.Buffer{}
+	r.Encode(data)
+	s.benchmarkCommand(c, data.Bytes())
 }
 
 func (s *SessionTestSuite) BenchmarkListRange(c *C) {
 	r := protocol.NewListRangeRequest()
 	r.Key = "list"
-	data, _ := r.Encode()
-	s.benchmarkCommand(c, data)
+	data := &bytes.Buffer{}
+	r.Encode(data)
+	s.benchmarkCommand(c, data.Bytes())
 }
 
 func (s *SessionTestSuite) TestCommand(c *C) {
 	commands := map[string]command{
-		protocol.NewGetRequest().Command(): func(data io.Reader) []byte {
+		protocol.NewGetRequest().Command(): func(rw io.ReadWriter) {
 			request := protocol.NewGetRequest()
 			response := protocol.NewGetResponse()
-			return run(data, request, response, func() {
+			run(rw, request, response, func() {
 				c.Assert(request.Key, Equals, "key")
 				response.Value = "value"
 			})
@@ -119,9 +123,9 @@ func (s *SessionTestSuite) TestCommand(c *C) {
 
 	request := protocol.NewGetRequest()
 	request.Key = "key"
-	data, _ := request.Encode()
-
-	out := conn.send(data)
+	data := &bytes.Buffer{}
+	request.Encode(data)
+	out := conn.send(data.Bytes())
 	conn.close()
 
 	response := protocol.NewGetResponse()

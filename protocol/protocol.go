@@ -6,12 +6,12 @@ import (
 )
 
 type Request interface {
-	Encode() ([]byte, error)
+	Encode(io.Writer) error
 	Decode(io.Reader) error
 }
 
 type Response interface {
-	Encode() ([]byte, error)
+	Encode(io.Writer) error
 	Decode(io.Reader) error
 }
 
@@ -114,7 +114,7 @@ func NewAuthResponse() *okResponse {
 }
 
 func NewKeysResponse() *keysResponse {
-	return &keysResponse{countResponse: newDataResponse()}
+	return &keysResponse{countResponse: newCountResponse()}
 }
 
 func NewGetResponse() *valueResponse {
@@ -150,11 +150,11 @@ func NewHashDelResponse() *okResponse {
 }
 
 func NewHashGetAllResponse() *fieldsResponse {
-	return &fieldsResponse{countResponse: newDataResponse()}
+	return &fieldsResponse{countResponse: newCountResponse()}
 }
 
 func NewHashKeysResponse() *keysResponse {
-	return &keysResponse{countResponse: newDataResponse()}
+	return &keysResponse{countResponse: newCountResponse()}
 }
 
 func NewHashLenResponse() *lenResponse {
@@ -186,7 +186,7 @@ func NewListLenResponse() *lenResponse {
 }
 
 func NewListRangeResponse() *valuesResponse {
-	return &valuesResponse{countResponse: newDataResponse()}
+	return &valuesResponse{countResponse: newCountResponse()}
 }
 
 func NewErrorResponse(err error) *okResponse {

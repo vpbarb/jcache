@@ -16,11 +16,11 @@ type response struct {
 	Error error
 }
 
-func (r *response) encodeResponse(response []byte) ([]byte, error) {
+func (r *response) prepareResponse(response []byte) []byte {
 	if r.Error != nil {
-		return []byte(fmt.Sprintf("ERROR %s\r\n", r.Error)), nil
+		return []byte(fmt.Sprintf("ERROR %s\r\n", r.Error))
 	}
-	return response, nil
+	return response
 }
 
 func (r *response) decodeHeader(buf *bufio.Reader) ([]byte, error) {
@@ -42,12 +42,13 @@ func newOkResponse() *okResponse {
 	return &okResponse{response: &response{}}
 }
 
-func (r *okResponse) Encode() ([]byte, error) {
-	return r.encodeResponse([]byte("OK\r\n"))
+func (r *okResponse) Encode(writer io.Writer) (err error) {
+	_, err = writer.Write(r.prepareResponse([]byte("OK\r\n")))
+	return
 }
 
-func (r *okResponse) Decode(data io.Reader) error {
-	buf := bufio.NewReader(data)
+func (r *okResponse) Decode(reader io.Reader) error {
+	buf := bufio.NewReader(reader)
 	header, err := r.decodeHeader(buf)
 	if err != nil {
 		return err
@@ -65,14 +66,14 @@ type countResponse struct {
 	*response
 }
 
-func newDataResponse() countResponse {
+func newCountResponse() countResponse {
 	return countResponse{response: &response{}}
 }
 
-func (r countResponse) encodeData(data []byte, count int) ([]byte, error) {
+func (r countResponse) prepareResponse(data []byte, count int) []byte {
 	response := []byte(fmt.Sprintf("COUNT %d\r\n", count))
 	response = append(response, data...)
-	return r.encodeResponse(response)
+	return r.response.prepareResponse(response)
 }
 
 func (r countResponse) decodeCount(header []byte) (int, error) {
@@ -89,12 +90,13 @@ type lenResponse struct {
 	Len int
 }
 
-func (r *lenResponse) Encode() ([]byte, error) {
-	return r.encodeResponse([]byte(fmt.Sprintf("LEN %d\r\n", r.Len)))
+func (r *lenResponse) Encode(writer io.Writer) (err error) {
+	_, err = writer.Write(r.prepareResponse([]byte(fmt.Sprintf("LEN %d\r\n", r.Len))))
+	return
 }
 
-func (r *lenResponse) Decode(data io.Reader) error {
-	buf := bufio.NewReader(data)
+func (r *lenResponse) Decode(reader io.Reader) error {
+	buf := bufio.NewReader(reader)
 	header, err := r.decodeHeader(buf)
 	if err != nil {
 		return err
@@ -121,12 +123,13 @@ func newValueResponse() *valueResponse {
 	return &valueResponse{response: &response{}}
 }
 
-func (r *valueResponse) Encode() ([]byte, error) {
-	return r.encodeResponse([]byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(r.Value), r.Value)))
+func (r *valueResponse) Encode(writer io.Writer) (err error) {
+	_, err = writer.Write(r.prepareResponse([]byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(r.Value), r.Value))))
+	return
 }
 
-func (r *valueResponse) Decode(data io.Reader) error {
-	buf := bufio.NewReader(data)
+func (r *valueResponse) Decode(reader io.Reader) error {
+	buf := bufio.NewReader(reader)
 	header, err := r.decodeHeader(buf)
 	if err != nil {
 		return err
@@ -152,19 +155,20 @@ type keysResponse struct {
 	Keys []string
 }
 
-func (r *keysResponse) Encode() ([]byte, error) {
+func (r *keysResponse) Encode(writer io.Writer) (err error) {
 	var data []byte
 	for _, key := range r.Keys {
 		if !keyRegexp.MatchString(key) {
-			return nil, fmt.Errorf("Invalid key: %s", key)
+			return fmt.Errorf("Invalid key: %s", key)
 		}
 		data = append(data, []byte(fmt.Sprintf("KEY %s\r\n", key))...)
 	}
-	return r.encodeData(data, len(r.Keys))
+	_, err = writer.Write(r.prepareResponse(data, len(r.Keys)))
+	return
 }
 
-func (r *keysResponse) Decode(data io.Reader) error {
-	buf := bufio.NewReader(data)
+func (r *keysResponse) Decode(reader io.Reader) error {
+	buf := bufio.NewReader(reader)
 	header, err := r.decodeHeader(buf)
 	if err != nil {
 		return err
@@ -198,16 +202,17 @@ type valuesResponse struct {
 	Values []string
 }
 
-func (r *valuesResponse) Encode() ([]byte, error) {
+func (r *valuesResponse) Encode(writer io.Writer) (err error) {
 	var data []byte
 	for _, value := range r.Values {
 		data = append(data, []byte(fmt.Sprintf("VALUE %d\r\n%s\r\n", len(value), value))...)
 	}
-	return r.encodeData(data, len(r.Values))
+	_, err = writer.Write(r.prepareResponse(data, len(r.Values)))
+	return
 }
 
-func (r *valuesResponse) Decode(data io.Reader) error {
-	buf := bufio.NewReader(data)
+func (r *valuesResponse) Decode(reader io.Reader) error {
+	buf := bufio.NewReader(reader)
 	header, err := r.decodeHeader(buf)
 	if err != nil {
 		return err
@@ -245,16 +250,17 @@ type fieldsResponse struct {
 	Fields map[string]string
 }
 
-func (r *fieldsResponse) Encode() ([]byte, error) {
+func (r *fieldsResponse) Encode(writer io.Writer) (err error) {
 	var data []byte
 	for field, value := range r.Fields {
 		data = append(data, []byte(fmt.Sprintf("FIELD %s %d\r\n%s\r\n", field, len(value), value))...)
 	}
-	return r.encodeData(data, len(r.Fields))
+	_, err = writer.Write(r.prepareResponse(data, len(r.Fields)))
+	return
 }
 
-func (r *fieldsResponse) Decode(data io.Reader) error {
-	buf := bufio.NewReader(data)
+func (r *fieldsResponse) Decode(reader io.Reader) error {
+	buf := bufio.NewReader(reader)
 	header, err := r.decodeHeader(buf)
 	if err != nil {
 		return err

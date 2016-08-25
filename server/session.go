@@ -49,21 +49,21 @@ func (s *session) start() {
 
 		if command, found := s.sessionCommands[commandName]; found {
 			s.log(fmt.Sprintf("run %s", commandName))
-			s.rw.Write(command(s.rw))
+			command(s.rw)
 			continue
 		}
 
 		if command, found := s.serverCommands[commandName]; found {
 			if s.isAuthRequired && !s.isAuthorized {
-				s.rw.Write(encodeError(errors.New("Need authentitication")))
+				writeError(s.rw, errors.New("Need authentitication"))
 				continue
 			}
 			s.log(fmt.Sprintf("run %s", commandName))
-			s.rw.Write(command(s.rw))
+			command(s.rw)
 			continue
 		}
 
-		s.rw.Write(encodeError(errors.New("Unknown command")))
+		writeError(s.rw, errors.New("Unknown command"))
 	}
 	s.log("close session")
 }

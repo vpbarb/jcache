@@ -309,11 +309,7 @@ func (c *Client) call(request protocol.Request, response protocol.Response) erro
 }
 
 func (c *Client) callRW(rw io.ReadWriter, request protocol.Request, response protocol.Response) error {
-	data, err := request.Encode()
-	if err != nil {
-		return err
-	}
-	_, err = rw.Write(data)
+	err := request.Encode(rw)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,7 @@ var (
 	invalidUserFormatError     = errors.New("User is not valid")
 	invalidPasswordFormatError = errors.New("Password is not valid")
 	invalidKeyFormatError      = errors.New("Key is not valid")
+	invalidFieldFormatError    = errors.New("Field is not valid")
 	invalidValueLengthError    = errors.New("Value length is invalid")
 
 	keyRegexp = regexp.MustCompile("^" + keyTemplate + "$")
@@ -29,16 +30,13 @@ func (r request) Command() string {
 	return r.command
 }
 
-func (r *request) Decode(data io.Reader) error {
-	err := readRequestEnd(data)
-	if err != nil {
-		return err
-	}
-	return nil
+func (r *request) Decode(reader io.Reader) error {
+	return readRequestEnd(reader)
 }
 
-func (r *request) Encode() ([]byte, error) {
-	return []byte(fmt.Sprintf("%s\r\n", r.command)), nil
+func (r *request) Encode(writer io.Writer) (err error) {
+	_, err = writer.Write([]byte(fmt.Sprintf("%s\r\n", r.command)))
+	return
 }
 
 func newRequest(command string) request {
@@ -61,11 +59,11 @@ func (r *authRequest) validate() error {
 	return nil
 }
 
-func (r *authRequest) Decode(data io.Reader) error {
+func (r *authRequest) Decode(reader io.Reader) error {
 	var user string
 	var password string
 
-	_, err := fmt.Fscanf(data, "%s %s\r\n", &user, &password)
+	_, err := fmt.Fscanf(reader, "%s %s\r\n", &user, &password)
 	if err != nil {
 		return invalidRequestFormatError
 	}
@@ -75,11 +73,12 @@ func (r *authRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *authRequest) Encode() ([]byte, error) {
+func (r *authRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %s\r\n", r.command, r.User, r.Password)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %s\r\n", r.command, r.User, r.Password)))
+	return
 }
 
 type keyRequest struct {
@@ -94,10 +93,10 @@ func (r *keyRequest) validate() error {
 	return invalidKeyFormatError
 }
 
-func (r *keyRequest) Decode(data io.Reader) error {
+func (r *keyRequest) Decode(reader io.Reader) error {
 	var key string
 
-	_, err := fmt.Fscanf(data, "%s\r\n", &key)
+	_, err := fmt.Fscanf(reader, "%s\r\n", &key)
 	if err != nil {
 		return invalidRequestFormatError
 	}
@@ -106,11 +105,12 @@ func (r *keyRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *keyRequest) Encode() ([]byte, error) {
+func (r *keyRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s\r\n", r.command, r.Key)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s\r\n", r.command, r.Key)))
+	return
 }
 
 func newKeyRequest(command string) *keyRequest {
@@ -122,11 +122,11 @@ type keyTTLRequest struct {
 	TTL uint64
 }
 
-func (r *keyTTLRequest) Decode(data io.Reader) error {
+func (r *keyTTLRequest) Decode(reader io.Reader) error {
 	var key string
 	var ttl uint64
 
-	_, err := fmt.Fscanf(data, "%s %d\r\n", &key, &ttl)
+	_, err := fmt.Fscanf(reader, "%s %d\r\n", &key, &ttl)
 	if err != nil {
 		return invalidRequestFormatError
 	}
@@ -136,11 +136,12 @@ func (r *keyTTLRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *keyTTLRequest) Encode() ([]byte, error) {
+func (r *keyTTLRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %d\r\n", r.command, r.Key, r.TTL)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %d\r\n", r.command, r.Key, r.TTL)))
+	return
 }
 
 type keyValueRequest struct {
@@ -152,16 +153,16 @@ func newKeyTTLRequest(command string) *keyTTLRequest {
 	return &keyTTLRequest{keyRequest: newKeyRequest(command)}
 }
 
-func (r *keyValueRequest) Decode(data io.Reader) error {
+func (r *keyValueRequest) Decode(reader io.Reader) error {
 	var key string
 	var length int
 
-	_, err := fmt.Fscanf(data, "%s %d\r\n", &key, &length)
+	_, err := fmt.Fscanf(reader, "%s %d\r\n", &key, &length)
 	if err != nil {
 		return invalidRequestFormatError
 	}
 
-	value, err := readRequestValue(data, length)
+	value, err := readRequestValue(reader, length)
 	if err != nil {
 		return err
 	}
@@ -171,11 +172,12 @@ func (r *keyValueRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *keyValueRequest) Encode() ([]byte, error) {
+func (r *keyValueRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %d\r\n%s\r\n", r.command, r.Key, len(r.Value), r.Value)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %d\r\n%s\r\n", r.command, r.Key, len(r.Value), r.Value)))
+	return
 }
 
 func newKeyValueRequest(command string) *keyValueRequest {
@@ -192,16 +194,16 @@ func (r *keyFieldRequest) validate() error {
 		return err
 	}
 	if !keyRegexp.MatchString(r.Field) {
-		return invalidKeyFormatError
+		return invalidFieldFormatError
 	}
 	return nil
 }
 
-func (r *keyFieldRequest) Decode(data io.Reader) error {
+func (r *keyFieldRequest) Decode(reader io.Reader) error {
 	var key string
 	var field string
 
-	_, err := fmt.Fscanf(data, "%s %s\r\n", &key, &field)
+	_, err := fmt.Fscanf(reader, "%s %s\r\n", &key, &field)
 	if err != nil {
 		return invalidRequestFormatError
 	}
@@ -211,11 +213,12 @@ func (r *keyFieldRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *keyFieldRequest) Encode() ([]byte, error) {
+func (r *keyFieldRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %s\r\n", r.command, r.Key, r.Field)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %s\r\n", r.command, r.Key, r.Field)))
+	return
 }
 
 func newKeyFieldRequest(command string) *keyFieldRequest {
@@ -227,17 +230,17 @@ type keyFieldValueRequest struct {
 	Value string
 }
 
-func (r *keyFieldValueRequest) Decode(data io.Reader) error {
+func (r *keyFieldValueRequest) Decode(reader io.Reader) error {
 	var key string
 	var field string
 	var length int
 
-	_, err := fmt.Fscanf(data, "%s %s %d\r\n", &key, &field, &length)
+	_, err := fmt.Fscanf(reader, "%s %s %d\r\n", &key, &field, &length)
 	if err != nil {
 		return invalidRequestFormatError
 	}
 
-	value, err := readRequestValue(data, length)
+	value, err := readRequestValue(reader, length)
 	if err != nil {
 		return err
 	}
@@ -248,11 +251,12 @@ func (r *keyFieldValueRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *keyFieldValueRequest) Encode() ([]byte, error) {
+func (r *keyFieldValueRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %s %d\r\n%s\r\n", r.command, r.Key, r.Field, len(r.Value), r.Value)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %s %d\r\n%s\r\n", r.command, r.Key, r.Field, len(r.Value), r.Value)))
+	return
 }
 
 func newKeyFieldValueRequest(command string) *keyFieldValueRequest {
@@ -264,17 +268,17 @@ type setRequest struct {
 	TTL uint64
 }
 
-func (r *setRequest) Decode(data io.Reader) error {
+func (r *setRequest) Decode(reader io.Reader) error {
 	var key string
 	var ttl uint64
 	var length int
 
-	_, err := fmt.Fscanf(data, "%s %d %d\r\n", &key, &ttl, &length)
+	_, err := fmt.Fscanf(reader, "%s %d %d\r\n", &key, &ttl, &length)
 	if err != nil {
 		return invalidRequestFormatError
 	}
 
-	value, err := readRequestValue(data, length)
+	value, err := readRequestValue(reader, length)
 	if err != nil {
 		return err
 	}
@@ -285,11 +289,12 @@ func (r *setRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *setRequest) Encode() ([]byte, error) {
+func (r *setRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %d %d\r\n%s\r\n", r.command, r.Key, r.TTL, len(r.Value), r.Value)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %d %d\r\n%s\r\n", r.command, r.Key, r.TTL, len(r.Value), r.Value)))
+	return
 }
 
 type listRangeRequest struct {
@@ -298,11 +303,11 @@ type listRangeRequest struct {
 	Stop  int
 }
 
-func (r *listRangeRequest) Decode(data io.Reader) error {
+func (r *listRangeRequest) Decode(reader io.Reader) error {
 	var key string
 	var start, stop int
 
-	_, err := fmt.Fscanf(data, "%s %d %d\r\n", &key, &start, &stop)
+	_, err := fmt.Fscanf(reader, "%s %d %d\r\n", &key, &start, &stop)
 	if err != nil {
 		return invalidRequestFormatError
 	}
@@ -313,30 +318,31 @@ func (r *listRangeRequest) Decode(data io.Reader) error {
 	return nil
 }
 
-func (r *listRangeRequest) Encode() ([]byte, error) {
+func (r *listRangeRequest) Encode(writer io.Writer) (err error) {
 	if err := r.validate(); err != nil {
-		return nil, err
+		return err
 	}
-	return []byte(fmt.Sprintf("%s %s %d %d\r\n", r.command, r.Key, r.Start, r.Stop)), nil
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s %d %d\r\n", r.command, r.Key, r.Start, r.Stop)))
+	return
 }
 
-func readRequestValue(data io.Reader, length int) ([]byte, error) {
+func readRequestValue(reader io.Reader, length int) ([]byte, error) {
 	value := make([]byte, length, length)
-	n, err := data.Read(value)
+	n, err := reader.Read(value)
 	if err != nil {
 		return nil, invalidRequestFormatError
 	}
 	if n != length {
 		return nil, invalidValueLengthError
 	}
-	if err := readRequestEnd(data); err != nil {
+	if err := readRequestEnd(reader); err != nil {
 		return nil, err
 	}
 	return value, nil
 }
 
-func readRequestEnd(data io.Reader) error {
-	_, err := fmt.Fscanf(data, "\r\n")
+func readRequestEnd(reader io.Reader) error {
+	_, err := fmt.Fscanf(reader, "\r\n")
 	if err != nil {
 		return invalidRequestFormatError
 	}
