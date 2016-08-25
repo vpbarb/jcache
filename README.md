@@ -4,6 +4,7 @@
 ## Protocol
 ### Terms: key, value and TTL
 **Key** may contain only alphabetical symbols (a-z) in any case and numbers.
+
 Supported **value** types:
 - string
 - hash (key-value subset)
@@ -33,7 +34,7 @@ Most of commands may return error as a response instead of normal response. For 
 
 All commands related to specific value type return error if client tries to work with key of another type (except of DEL command which is universal).
 
-###KEYS
+####KEYS
 Command returns all keys from store. If storage is empty, then the command returns `COUNT 0`.
 
     KEYS\r\n
@@ -44,7 +45,7 @@ Example:
     --> KEYS\r\n
     <-- COUNT 3\r\nKEY some_key1\r\nKEY some_key2\r\nKEY some_key3\r\n
 
-###GET
+####GET
 Command returns string value by key. It works only for string value type. Command responses `VALUE N` where N is a length of following value. It returns error if key doesn't exist.
 
 	GET <key>\r\n
@@ -55,7 +56,7 @@ Example:
     --> GET some_key\r\n
     <-- VALUE 10\r\nsome_value\r\n
 
-###SET
+####SET
 Command sets new key-value pair. It works only for string value type. It returns error if key already exists.
 
     SET <key> <ttl> <value length>\r\n<value>\r\n
@@ -66,91 +67,91 @@ Example:
     --> SET some_key 60 10\r\nsome_value\r\n
     <-- OK\r\n
 
-###UPD
+####UPD
 Command updates existing key string value. It works only for string value type. It returns error if key doesn't exist.
 
     UPD <key> <value_length>\r\n<value>\r\n
     OK\r\n
 
-###DEL
+####DEL
 Command deletes key value. It works for **all** value types. It returns error if key doesn't exist.
 
     DEL <key>\r\n
     OK\r\n
 
-###HCREATE
+####HCREATE
 Command creates new hash. It returns error if key already exists.
 
 	HCREATE <key> <ttl>\r\n
 	OK\r\n
 
-###HGET
+####HGET
 Command returns hash field value. It returns error if key or field doesn't exist or key type is not hash.
 
 	HGET <key> <field>\r\n
 	VALUE <value_length>\r\n<value>\r\n
 
-###HSET
+####HSET
 Command sets hash field value. It is allowed to change existing field. It returns error if key already exists.
 
 	HSET <key> <field> <value_length>\r\n<value>\r\n
 	OK\r\n
 
-###HDEL
+####HDEL
 Command deletes hash field. It returns error if key or field doesn't exist.
 
 	HDEL <key> <field>\r\n
 	OK\r\n
 
-###HKEYS
+####HKEYS
 Command returns list of all fields in hash. It returns error if key doesn't exist.
 
 	HKEYS <key>\r\n
 	COUNT <number_of_fields>\r\n[KEY <field>\r\n...]
 
-###HLEN
+####HLEN
 Command returns number of fields in hash. It returns error if key doesn't exist.
 
 	HLEN <key>\r\n
 	LEN <number_of_fields>\r\n
 
-###LCREATE
+####LCREATE
 Command creates new list. It returns error if key already exists.
 
 	HLIST <key> <ttl>\r\n
 	OK\r\n
 
-###LRPUSH
+####LRPUSH
 Command adds new value to the ending (right) of the list. It returns error if key doesn't exist.
 
 	LRPUSH <key> <value_length>\r\n<value>\r\n
 	OK\r\n
 
-###LLPUSH
+####LLPUSH
 Command adds new value to the beginning (left) of the list. It returns error if key doesn't exist.
 
 	LLPUSH <key> <value_length>\r\n<value>\r\n
 	OK\r\n
 
-###LRPOP
+####LRPOP
 Command returns and removes value from the ending of the list. It returns error if key doesn't exist or if the list is empty.
 
 	LRPOP <key>\r\n
 	VALUE <value_length>\r\n<value>\r\n
 
-###LLPOP
+####LLPOP
 Command returns and removes value from the beginning of the list. It returns error if key doesn't exist or if the list is empty.
 
 	LLPOP <key>\r\n
 	VALUE <value_length>\r\n<value>\r\n
 
-###LLEN
+####LLEN
 Command returns number of values in the list. It returns error if key doesn't exist.
 
 	LLEN <key>\r\n
 	LEN <number_of_values>\r\n
 
-###LRANGE
+####LRANGE
 Command returns sublist of values from and to specified indexes. If specified indexes are out of range it doesn't cause an error. It returns error if key doesn't exist.
 
 	LRANGE <key> <start> <stop>\r\n
