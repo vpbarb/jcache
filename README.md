@@ -19,20 +19,10 @@ Any key may have **TTL** specified by seconds. When after TTL key will be expire
 
 Following list of command contains each command description and command/responses format.
 
-	Command format
-	Response format
-
-Some of command description provide examples in format:
+Some of command descriptions provide examples in format:
 
     --> example of data sent to server
     <-- example of data sent to client
-
-Most of commands may return error as a response instead of normal response. For example:
-
-    --> <command>\r\n
-    <-- ERROR <description>\r\n
-
-All commands related to specific value type return error if client tries to work with key of another type (except of DEL command which is universal).
 
 ####KEYS
 Command returns all keys from store. If storage is empty, then the command returns `COUNT 0`.
@@ -156,6 +146,27 @@ Command returns sublist of values from and to specified indexes. If specified in
 
 	LRANGE <key> <start> <stop>\r\n
 	COUNT <number_of_values>\r\n[VALUE <value_length>\r\n<value>\r\n...]
+
+####AUTH
+Command authenticate user within the opened connection. If server is started with authentication support, then AUTH command must be first after connection open. If authentication is not passed, then all commands will return error.
+
+	AUTH <user> <password>\r\n
+	OK\r\n
+
+###Errors
+Server may return protocol-related errors if it could not parse incoming request. Also, most of commands may return command-related error as a response instead of normal response. In both cases error response format will be:
+
+	ERROR <description>\r\n
+
+Examples:
+
+    --> NONEXISTINGCOMMAND\r\n
+    <-- ERROR Unknown command\r\n
+    
+    --> GET\r\n
+    <-- ERROR Invalid command format\r\n
+
+All commands related to specific value type return error if client tries to work with key of another type (except of DEL command which is universal).
 
 ## Server
 ###Storage types
