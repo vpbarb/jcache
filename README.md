@@ -193,6 +193,9 @@ It's the same in-memory storage but separated on several buckets. Distribution b
 ####Bolt
 This storage has underlying [Bolt](https://github.com/boltdb/bolt) file storage. Path to Bolt file is defined by `storage_boltdb_path` option. If file doesn't exist it will be created.
 
+###Authentication
+If you want server supports authentication, just pass path to .htpasswd file with `htpasswd` option. If server is running with `htpasswd` option then it requires `AUTH` command with valid credentials after connection is open. All other commands will work only after valid authentication.
+
 ###How to build
 
 	git clone git@github.com:Barberrrry/jcache.git ./
@@ -212,20 +215,22 @@ Just run server with default parameters:
 	
 Run options:
 
-	-htpasswd string
-		Path to .htpasswd file for authentication. Leave blank to disable authentication.
-	-listen string
-       	Host and port to listen connection (default ":9999")
-	-storage_boltdb_path string
-       	Path to BoltDB file
-	-storage_gc_interval duration
-       	Storage GC interval (default 1m0s)
-	-storage_memory_size uint
-       	Max number of stored elements (default 10000)
-	-storage_multi_memory_count uint
-       	Number of storages inside multi memory storage (default 1)
-	-storage_type value
-       	Type of storage (memory, multi_memory) (default memory)
+	./jcache --help
+	Usage of ./jcache:
+        -htpasswd string
+            Path to .htpasswd file for authentication. Leave blank to disable authentication.
+        -listen string
+            Host and port to listen connection (default ":9999")
+        -storage_bolt_path string
+            Path to Bolt file
+        -storage_gc_interval duration
+            Storage GC interval (default 1m0s)
+        -storage_memory_size uint
+            Max number of stored elements (default 10000)
+        -storage_multi_memory_count uint
+            Number of storages inside multi memory storage (default 1)
+        -storage_type value
+            Type of storage (memory, multi_memory, bolt) (default memory)
 
 Example:
 
