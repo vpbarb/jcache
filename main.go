@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -18,10 +19,10 @@ func main() {
 
 	htpasswdPath := flag.String("htpasswd", "", "Path to .htpasswd file for authentication. Leave blank to disable authentication.")
 	listen := flag.String("listen", ":9999", "Host and port to listen connection")
-	flag.Var(&storageType, "storage_type", "Type of storage (memory, multi_memory)")
+	flag.Var(&storageType, "storage_type", fmt.Sprintf("Type of storage (%s, %s, %s)", server.StorageMemory, server.StorageMultiMemory, server.StorageBolt))
 	storageMemorySize := flag.Uint("storage_memory_size", 10000, "Max number of stored elements")
 	storageMultiMemoryCount := flag.Uint("storage_multi_memory_count", 1, "Number of storages inside multi memory storage")
-	storageBoltDbPath := flag.String("storage_boltdb_path", "", "Path to BoltDB file")
+	storageBoltPath := flag.String("storage_bolt_path", "", "Path to Bolt file")
 	storageGCInterval := flag.Duration("storage_gc_interval", time.Minute, "Storage GC interval")
 	flag.Parse()
 
@@ -47,9 +48,9 @@ func main() {
 		}
 		storage = ms
 
-	case server.StorageBoltDB:
+	case server.StorageBolt:
 		var err error
-		storage, err = boltdb.NewStorage(*storageBoltDbPath, *storageGCInterval)
+		storage, err = boltdb.NewStorage(*storageBoltPath, *storageGCInterval)
 		if err != nil {
 			log.Fatalln(err)
 		}
