@@ -36,6 +36,12 @@ func testValueType(client *client.Client) {
 		log.Printf("Error: %s", err)
 	}
 
+	err = client.Expire(key, 1800)
+	log.Printf("Expire: %s", key)
+	if err != nil {
+		log.Printf("Error: %s", err)
+	}
+
 	keys, err = client.Keys()
 	log.Printf("Keys: %v", keys)
 	if err != nil {

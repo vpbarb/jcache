@@ -39,6 +39,7 @@ func New(storage storage.Storage, htpasswdPath string, logger *log.Logger) *serv
 			protocol.NewListRightPushRequest().Command(): newListRightPushCommand(storage),
 			protocol.NewListLenRequest().Command():       newListLenCommand(storage),
 			protocol.NewListRangeRequest().Command():     newListRangeCommand(storage),
+			protocol.NewExpireRequest().Command():        newExpireCommand(storage),
 		},
 		logger: logger,
 	}

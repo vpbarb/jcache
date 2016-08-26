@@ -39,6 +39,11 @@ func (s *storage) Keys() []string {
 	return keys
 }
 
+// Expire sets new key ttl
+func (s *storage) Expire(key string, ttl uint64) error {
+	return s.getStorage(key).Expire(key, ttl)
+}
+
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (string, error) {
 	return s.getStorage(key).Get(key)

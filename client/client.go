@@ -47,6 +47,19 @@ func (c *Client) Keys() ([]string, error) {
 	return response.Keys, response.Error
 }
 
+// Expire updates key ttl
+func (c *Client) Expire(key string, ttl uint64) error {
+	request := protocol.NewExpireRequest()
+	request.Key = key
+	request.TTL = ttl
+	response := protocol.NewExpireResponse()
+	if err := c.call(request, response); err != nil {
+		return err
+	}
+
+	return response.Error
+}
+
 // Get returns value by key
 func (c *Client) Get(key string) (string, error) {
 	request := protocol.NewGetRequest()

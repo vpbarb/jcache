@@ -22,6 +22,10 @@ func ReadRequestCommand(r io.Reader) (string, error) {
 	return command, nil
 }
 
+func FlushRequest(r io.Reader) {
+	readRequestEnd(r)
+}
+
 // Requests
 
 func NewAuthRequest() *authRequest {
@@ -105,6 +109,10 @@ func NewListRangeRequest() *listRangeRequest {
 	return &listRangeRequest{keyRequest: newKeyRequest("LRANGE")}
 }
 
+func NewExpireRequest() *keyTTLRequest {
+	return newKeyTTLRequest("EXPIRE")
+}
+
 // Responses
 
 func NewAuthResponse() *okResponse {
@@ -185,6 +193,10 @@ func NewListLenResponse() *lenResponse {
 
 func NewListRangeResponse() *valuesResponse {
 	return &valuesResponse{countResponse: newCountResponse()}
+}
+
+func NewExpireResponse() *okResponse {
+	return newOkResponse()
 }
 
 func NewErrorResponse(err error) *okResponse {

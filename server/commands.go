@@ -224,6 +224,16 @@ func newListRangeCommand(storage storage.Storage) command {
 	}
 }
 
+func newExpireCommand(storage storage.Storage) command {
+	return func(rw io.ReadWriter) {
+		request := protocol.NewExpireRequest()
+		response := protocol.NewExpireResponse()
+		run(rw, request, response, func() {
+			response.Error = storage.Expire(request.Key, request.TTL)
+		})
+	}
+}
+
 func newAuthCommand(htpasswdFile *htpasswd.HtpasswdFile, session *session) command {
 	return func(rw io.ReadWriter) {
 		request := protocol.NewAuthRequest()

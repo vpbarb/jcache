@@ -11,13 +11,9 @@ type Item struct {
 }
 
 func NewItem(value interface{}, ttl uint64) *Item {
-	var expireTime time.Time
-	if ttl > 0 {
-		expireTime = time.Now().Add(time.Duration(ttl) * time.Second)
-	}
 	return &Item{
 		Value:      value,
-		ExpireTime: expireTime,
+		ExpireTime: getExpireTime(ttl),
 	}
 }
 
@@ -47,4 +43,15 @@ func (i *Item) CastList() (*list.List, error) {
 
 func (i *Item) IsAlive() bool {
 	return i.ExpireTime.IsZero() || i.ExpireTime.After(time.Now())
+}
+
+func (i *Item) SetTTL(ttl uint64) {
+	i.ExpireTime = getExpireTime(ttl)
+}
+
+func getExpireTime(ttl uint64) (expireTime time.Time) {
+	if ttl > 0 {
+		expireTime = time.Now().Add(time.Duration(ttl) * time.Second)
+	}
+	return
 }

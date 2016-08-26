@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -342,9 +343,11 @@ func readRequestValue(reader io.Reader, length int) ([]byte, error) {
 }
 
 func readRequestEnd(reader io.Reader) error {
-	_, err := fmt.Fscanf(reader, "\r\n")
-	if err != nil {
-		return invalidRequestFormatError
-	}
+	buf := bufio.NewReader(reader)
+	buf.ReadLine()
+	//_, err := fmt.Fscanln(reader)
+	//if err != nil {
+	//	return invalidRequestFormatError
+	//}
 	return nil
 }

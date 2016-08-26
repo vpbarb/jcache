@@ -150,6 +150,20 @@ func (s *storage) Keys() (keys []string) {
 	return
 }
 
+// Expire sets new key ttl
+func (s *storage) Expire(key string, ttl uint64) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(defaultBucketName)
+		item, err := s.getItem(bucket, key)
+		if err != nil {
+			return err
+		}
+
+		item.SetTTL(ttl)
+		return s.saveItem(bucket, key, item)
+	})
+}
+
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (value string, err error) {
 	err = s.db.View(func(tx *bolt.Tx) error {

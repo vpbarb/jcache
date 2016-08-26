@@ -6,6 +6,7 @@ import (
 
 type Storage interface {
 	Keys() []string
+	Expire(key string, ttl uint64) error
 	Get(key string) (string, error)
 	Set(key, value string, ttl uint64) error
 	Update(key, value string) error

@@ -63,6 +63,7 @@ func (s *session) start() {
 			continue
 		}
 
+		protocol.FlushRequest(s.rw)
 		writeError(s.rw, errors.New("Unknown command"))
 	}
 	s.log("close session")

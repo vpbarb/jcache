@@ -60,11 +60,11 @@ func (s *storage) getItem(key string) (*commonStorage.Item, error) {
 	return nil, commonStorage.KeyNotExistsError
 }
 
-func (s *storage) saveItem(key string, item *commonStorage.Item) {
+func (s *storage) addItem(key string, item *commonStorage.Item) {
 	s.lru.Add(key, item)
 }
 
-func (s *storage) deleteItem(key string) {
+func (s *storage) removeItem(key string) {
 	s.lru.Remove(key)
 }
 
@@ -107,6 +107,20 @@ func (s *storage) Keys() []string {
 	return keys
 }
 
+// Expire sets new key ttl
+func (s *storage) Expire(key string, ttl uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	item, err := s.getItem(key)
+	if err != nil {
+		return err
+	}
+
+	item.SetTTL(ttl)
+	return nil
+}
+
 // Get value of specified key. Error will occur if key doesn't exist or key type is not string.
 func (s *storage) Get(key string) (string, error) {
 	s.mu.RLock()
@@ -130,7 +144,7 @@ func (s *storage) Set(key, value string, ttl uint64) error {
 		return commonStorage.KeyAlreadyExistsError
 	}
 
-	s.saveItem(key, commonStorage.NewItem(value, ttl))
+	s.addItem(key, commonStorage.NewItem(value, ttl))
 	return nil
 }
 
@@ -157,7 +171,7 @@ func (s *storage) Delete(key string) error {
 	if err != nil {
 		return err
 	}
-	s.deleteItem(key)
+	s.removeItem(key)
 	return nil
 }
 
@@ -170,7 +184,7 @@ func (s *storage) HashCreate(key string, ttl uint64) error {
 	if item != nil {
 		return commonStorage.KeyAlreadyExistsError
 	}
-	s.saveItem(key, commonStorage.NewItem(make(commonStorage.Hash), ttl))
+	s.addItem(key, commonStorage.NewItem(make(commonStorage.Hash), ttl))
 	return nil
 }
 
@@ -264,7 +278,7 @@ func (s *storage) ListCreate(key string, ttl uint64) error {
 	if item != nil {
 		return commonStorage.KeyAlreadyExistsError
 	}
-	s.saveItem(key, commonStorage.NewItem(list.New(), ttl))
+	s.addItem(key, commonStorage.NewItem(list.New(), ttl))
 	return nil
 }
 

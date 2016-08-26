@@ -35,6 +35,12 @@ Example:
     --> KEYS\r\n
     <-- COUNT 3\r\nKEY some_key1\r\nKEY some_key2\r\nKEY some_key3\r\n
 
+####EXPIRE
+Command updates key ttl. It returns error if key doesn't exist.
+
+	EXPIRE <key> <ttl>\r\n
+	OK\r\n
+
 ####GET
 Command returns string value by key. It works only for string value type. Command responses `VALUE N` where N is a length of following value. It returns error if key doesn't exist.
 
