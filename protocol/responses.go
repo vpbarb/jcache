@@ -296,16 +296,13 @@ func (r *fieldsResponse) Decode(reader io.Reader) error {
 
 func readResponseValue(buf *bufio.Reader, length int) (string, error) {
 	value := make([]byte, length, length)
-	n, err := buf.Read(value)
-	if err != nil {
-		return "", err
-	}
-	if n != length {
-		return "", invalidValueLengthError
+	n, err := io.ReadFull(buf, value)
+	if err != nil || n != length {
+		return "", invalidResponseFormatError
 	}
 	rest, _, err := buf.ReadLine()
-	if len(rest) > 0 || err != nil {
-		return "", invalidValueLengthError
+	if err != nil || len(rest) > 0 {
+		return "", invalidResponseFormatError
 	}
 	return string(value), nil
 }

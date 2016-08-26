@@ -18,7 +18,6 @@ var (
 	invalidPasswordFormatError = errors.New("Password is not valid")
 	invalidKeyFormatError      = errors.New("Key is not valid")
 	invalidFieldFormatError    = errors.New("Field is not valid")
-	invalidValueLengthError    = errors.New("Value length is invalid")
 
 	keyRegexp = regexp.MustCompile("^" + keyTemplate + "$")
 )
@@ -329,12 +328,9 @@ func (r *listRangeRequest) Encode(writer io.Writer) (err error) {
 
 func readRequestValue(reader io.Reader, length int) ([]byte, error) {
 	value := make([]byte, length, length)
-	n, err := reader.Read(value)
-	if err != nil {
+	n, err := io.ReadFull(reader, value)
+	if err != nil || n != length {
 		return nil, invalidRequestFormatError
-	}
-	if n != length {
-		return nil, invalidValueLengthError
 	}
 	if err := readRequestEnd(reader); err != nil {
 		return nil, err
@@ -344,10 +340,9 @@ func readRequestValue(reader io.Reader, length int) ([]byte, error) {
 
 func readRequestEnd(reader io.Reader) error {
 	buf := bufio.NewReader(reader)
-	buf.ReadLine()
-	//_, err := fmt.Fscanln(reader)
-	//if err != nil {
-	//	return invalidRequestFormatError
-	//}
+	rest, _, err := buf.ReadLine()
+	if err != nil || len(rest) > 0 {
+		return invalidRequestFormatError
+	}
 	return nil
 }

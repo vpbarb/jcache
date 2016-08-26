@@ -106,7 +106,7 @@ func (s *RequestsTestSuite) TestSetDecodeError(c *C) {
 	err = request.Decode(bytes.NewBufferString("key 0 str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 3 5\r\nv\r\n"))
-	c.Assert(err, ErrorMatches, "Value length is invalid")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestSetDecodeSlowConnection(c *C) {
@@ -169,7 +169,7 @@ func (s *RequestsTestSuite) TestKeyValueDecodeError(c *C) {
 	err = request.Decode(bytes.NewBufferString("key str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key 5\r\nv\r\n"))
-	c.Assert(err, ErrorMatches, "Value length is invalid")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestKeyFieldEncode(c *C) {
@@ -310,7 +310,7 @@ func (s *RequestsTestSuite) TestKeyFieldValueDecodeError(c *C) {
 	err = request.Decode(bytes.NewBufferString("key field str\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid request format")
 	err = request.Decode(bytes.NewBufferString("key field 20\r\nvalue\r\nvalue\r\n"))
-	c.Assert(err, ErrorMatches, "Value length is invalid")
+	c.Assert(err, ErrorMatches, "Invalid request format")
 }
 
 func (s *RequestsTestSuite) TestListRangeEncode(c *C) {

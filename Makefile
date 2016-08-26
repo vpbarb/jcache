@@ -1,13 +1,13 @@
 all: build
 
 build: deps
-	GO15VENDOREXPERIMENT=1 go build -o jcache main.go
+	go build -o jcache main.go
 
 test: deps
-	GO15VENDOREXPERIMENT=1 go test -v ./server/... -check.v
+	go test ./server/... ./protocol
 
 bench: deps
-	GO15VENDOREXPERIMENT=1 go test -v ./server/... -check.b -check.bmem
+	go test -v ./server/... ./protocol -check.b -check.bmem
 
 deps:
 	go get github.com/Masterminds/glide

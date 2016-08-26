@@ -12,7 +12,7 @@ Supported **value** types:
 
 Hash field key limitation is similar to key limitation.
 
-Any key may have **TTL** specified by seconds. After TTL key will be expired and will be removed from storage by GC. TTL equal to 0 forces to keep key forever.
+Any key may have **TTL** specified by seconds. After TTL key will be expired and will be removed from storage by GC. TTL equal to 0 means unlimited TTL.
 
 ###Commands
 **jcache** protocol provides simple human-readable commands and responses format. 

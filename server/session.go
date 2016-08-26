@@ -56,7 +56,7 @@ func (s *session) start() {
 		if command, found := s.serverCommands[commandName]; found {
 			if s.isAuthRequired && !s.isAuthorized {
 				writeError(s.rw, errors.New("Need authentitication"))
-				continue
+				break
 			}
 			s.log(fmt.Sprintf("run %s", commandName))
 			command(s.rw)

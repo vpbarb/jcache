@@ -118,7 +118,7 @@ func (s *ResponsesTestSuite) TestValueDecodeError(c *C) {
 	err := response.Decode(bytes.NewBufferString("TEST\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
 	err = response.Decode(bytes.NewBufferString("VALUE 5\r\nval\r\n"))
-	c.Assert(err, ErrorMatches, "Value length is invalid")
+	c.Assert(err, ErrorMatches, "Invalid response format")
 }
 
 func (s *ResponsesTestSuite) TestKeysEncode(c *C) {
@@ -197,7 +197,7 @@ func (s *ResponsesTestSuite) TestFieldsDecodeError(c *C) {
 	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nFIELD field\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
 	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nFIELD field 10\r\n\r\n"))
-	c.Assert(err, ErrorMatches, "Value length is invalid")
+	c.Assert(err, ErrorMatches, "Invalid response format")
 }
 
 func (s *ResponsesTestSuite) TestValuesEncode(c *C) {
@@ -239,5 +239,5 @@ func (s *ResponsesTestSuite) TestValuesDecodeError(c *C) {
 	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nVALUE key\r\n"))
 	c.Assert(err, ErrorMatches, "Invalid response format")
 	err = response.Decode(bytes.NewBufferString("COUNT 1\r\nVALUE 5\r\n\r\n"))
-	c.Assert(err, ErrorMatches, "Value length is invalid")
+	c.Assert(err, ErrorMatches, "Invalid response format")
 }
