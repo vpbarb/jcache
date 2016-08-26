@@ -209,7 +209,11 @@ If you want server supports authentication, just pass path to .htpasswd file wit
 
 It will install vendor dependencies and build `jcache` file.
 
-###Benchmarks
+###Tests and benchmarks
+Run unit-tests:
+
+	make test
+
 Run benchmarks to see some storages and server performance:
 
 	make bench
