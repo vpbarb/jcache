@@ -182,18 +182,34 @@ Example:
 
 ## Server
 ###Storage types
-There are 3 implemented types of storages:
+There are 3 implemented types of storages: memory, multi_memory and bolt. All storages have "garbage collector" (GC) to remove expired values from storage. Interval of GC running is defined by `storage_gc_interval` option.
 
- - memory: simple in-memory storage with LRU algorithm limited by N stored values;
- - multi_memory: in-memory storage with sharding by key;
- - bolt: persistent storage based on [Bolt](https://github.com/boltdb/bolt).
+####Memory storage
+Memory storage is a simple in-memory storage with limited count of stored keys. Maximum size is defined by `storage_memory_size` option. Memory storage uses LRU algorithm, so less recent key will be removed in case of adding new key to full storage. 
 
-Type of storage and optional type-related parameters may be defined by run options.
+####Multi-memory storage
+It's the same in-memory storage but separated on several buckets. Distribution by buckets is normal and made by key check sum. Number of buckets is defined by `storage_multi_memory_count` option.
+
+####Bolt
+This storage has underlying [Bolt](https://github.com/boltdb/bolt) file storage. Path to Bolt file is defined by `storage_boltdb_path` option. If file doesn't exist it will be created.
 
 ###How to build
-TODO
+
+	git clone git@github.com:Barberrrry/jcache.git ./
+	make
+
+It will install vendor dependencies and build `jcache` file.
+
+###Benchmarks
+Run benchmarks to see some storages and server performance:
+
+	make bench
 
 ###How to run
+Just run server with default parameters:
+
+	./jcache
+	
 Run options:
 
 	-htpasswd string
@@ -213,14 +229,14 @@ Run options:
 
 Example:
 
-	jcache -listen=127.0.0.1:9999 storage_type=bolt storage_boltdb_path=bold.db
+	./jcache -listen=127.0.0.1:9999 -storage_type=bolt -storage_boltdb_path=bold.db -storage_gc_interval=5m
 
 ## Client
 Import client package:
 		
 	import "github.com/Barberrrry/jcache/client"
 
-Client package support [glide](github.com/Masterminds/glide), so you can just run `glide up` as usual. Or you may download client dependencies manually:
+Client package support [glide](github.com/Masterminds/glide), so you can just run `glide up` if you use glide in your project. Also you may download client dependencies manually:
 
 	go get "gopkg.in/fatih/pool.v2"
 
