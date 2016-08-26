@@ -156,7 +156,7 @@ func (s *StorageTestSuite) TestHashSetAndGet(c *C) {
 
 	// Set non-existing hash field
 	err6 := storage.HashSet("key2", "field", "value")
-	c.Assert(err6, ErrorMatches, "Key does not exist")
+	c.Assert(err6, IsNil)
 }
 
 func (s *StorageTestSuite) TestHashGetAll(c *C) {
@@ -321,11 +321,11 @@ func (s *StorageTestSuite) TestListPushAndPop(c *C) {
 	err = storage.ListLeftPush("key2", "value2")
 	c.Assert(err, ErrorMatches, "Key type is not list")
 	err = storage.ListLeftPush("key3", "value3")
-	c.Assert(err, ErrorMatches, "Key does not exist")
+	c.Assert(err, IsNil)
 	err = storage.ListRightPush("key2", "value2")
 	c.Assert(err, ErrorMatches, "Key type is not list")
 	err = storage.ListRightPush("key3", "value3")
-	c.Assert(err, ErrorMatches, "Key does not exist")
+	c.Assert(err, IsNil)
 }
 
 func (s *StorageTestSuite) TestListRange(c *C) {

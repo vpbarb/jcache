@@ -36,7 +36,7 @@ Example:
     <-- COUNT 3\r\nKEY some_key1\r\nKEY some_key2\r\nKEY some_key3\r\n
 
 ####EXPIRE
-Command updates key ttl. It returns error if key doesn't exist.
+Command updates key ttl. It works for **all** value types. It returns error if key doesn't exist.
 
 	EXPIRE <key> <ttl>\r\n
 	OK\r\n
@@ -88,7 +88,7 @@ Command returns hash field value. It returns error if key or field doesn't exist
 	VALUE <value_length>\r\n<value>\r\n
 
 ####HSET
-Command sets hash field value. It is allowed to change existing field. It returns error if key already exists.
+Command sets hash field value. It is allowed to change existing field. If hash doesn't exist yet, it will be created with ttl=0.
 
 	HSET <key> <field> <value_length>\r\n<value>\r\n
 	OK\r\n
@@ -118,13 +118,13 @@ Command creates new list. It returns error if key already exists.
 	OK\r\n
 
 ####LRPUSH
-Command adds new value to the ending (right) of the list. It returns error if key doesn't exist.
+Command adds new value to the ending (right) of the list. If list doesn't exist yet, it will be created with ttl=0.
 
 	LRPUSH <key> <value_length>\r\n<value>\r\n
 	OK\r\n
 
 ####LLPUSH
-Command adds new value to the beginning (left) of the list. It returns error if key doesn't exist.
+Command adds new value to the beginning (left) of the list. If list doesn't exist yet, it will be created with ttl=0.
 
 	LLPUSH <key> <value_length>\r\n<value>\r\n
 	OK\r\n

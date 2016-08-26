@@ -68,10 +68,14 @@ func (s *storage) removeItem(key string) {
 	s.lru.Remove(key)
 }
 
-func (s *storage) getHash(key string) (commonStorage.Hash, error) {
+func (s *storage) getHash(key string, createIfNotExist bool) (commonStorage.Hash, error) {
 	item, err := s.getItem(key)
 	if err != nil {
-		return nil, err
+		if !createIfNotExist {
+			return nil, err
+		}
+		item = commonStorage.NewItem(make(commonStorage.Hash), 0)
+		s.addItem(key, item)
 	}
 	hash, err := item.CastHash()
 	if err != nil {
@@ -80,10 +84,14 @@ func (s *storage) getHash(key string) (commonStorage.Hash, error) {
 	return hash, nil
 }
 
-func (s *storage) getList(key string) (*list.List, error) {
+func (s *storage) getList(key string, createIfNotExist bool) (*list.List, error) {
 	item, err := s.getItem(key)
 	if err != nil {
-		return nil, err
+		if !createIfNotExist {
+			return nil, err
+		}
+		item = commonStorage.NewItem(list.New(), 0)
+		s.addItem(key, item)
 	}
 	list, err := item.CastList()
 	if err != nil {
@@ -194,7 +202,7 @@ func (s *storage) HashGet(key, field string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	hash, err := s.getHash(key)
+	hash, err := s.getHash(key, false)
 	if err != nil {
 		return "", err
 	}
@@ -206,7 +214,7 @@ func (s *storage) HashGetAll(key string) (map[string]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.getHash(key)
+	return s.getHash(key, false)
 }
 
 // HashSet sets field value of specified key. Error will occur if key doesn't exist or key type is not hash.
@@ -214,7 +222,7 @@ func (s *storage) HashSet(key, field, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	hash, err := s.getHash(key)
+	hash, err := s.getHash(key, true)
 	if err != nil {
 		return err
 	}
@@ -227,7 +235,7 @@ func (s *storage) HashDelete(key, field string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	hash, err := s.getHash(key)
+	hash, err := s.getHash(key, false)
 	if err != nil {
 		return err
 	}
@@ -244,7 +252,7 @@ func (s *storage) HashLen(key string) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	hash, err := s.getHash(key)
+	hash, err := s.getHash(key, false)
 	if err != nil {
 		return 0, err
 	}
@@ -256,7 +264,7 @@ func (s *storage) HashKeys(key string) ([]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	hash, err := s.getHash(key)
+	hash, err := s.getHash(key, false)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +296,7 @@ func (s *storage) ListLeftPop(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	list, err := s.getList(key)
+	list, err := s.getList(key, false)
 	if err != nil {
 		return "", err
 	}
@@ -306,7 +314,7 @@ func (s *storage) ListRightPop(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	list, err := s.getList(key)
+	list, err := s.getList(key, false)
 	if err != nil {
 		return "", err
 	}
@@ -323,7 +331,7 @@ func (s *storage) ListLeftPush(key, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	list, err := s.getList(key)
+	list, err := s.getList(key, true)
 	if err != nil {
 		return err
 	}
@@ -337,7 +345,7 @@ func (s *storage) ListRightPush(key, value string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	list, err := s.getList(key)
+	list, err := s.getList(key, true)
 	if err != nil {
 		return err
 	}
@@ -351,7 +359,7 @@ func (s *storage) ListLen(key string) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	list, err := s.getList(key)
+	list, err := s.getList(key, false)
 	if err != nil {
 		return 0, err
 	}
@@ -365,7 +373,7 @@ func (s *storage) ListRange(key string, start, stop int) ([]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	list, err := s.getList(key)
+	list, err := s.getList(key, false)
 	if err != nil {
 		return nil, err
 	}

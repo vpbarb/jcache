@@ -264,7 +264,7 @@ func (s *storage) HashSet(key, field, value string) error {
 		bucket := tx.Bucket(defaultBucketName)
 		item, err := s.getItem(bucket, key)
 		if err != nil {
-			return err
+			item = commonStorage.NewItem(make(commonStorage.Hash), 0)
 		}
 		hash, err := item.CastHash()
 		if err != nil {
