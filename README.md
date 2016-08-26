@@ -248,4 +248,4 @@ Client package support [glide](github.com/Masterminds/glide), so you can just ru
 Example of client usage:
 
 	client, clientErr := client.New("127.0.0.1:9999", "admin", "admin", 5*time.Second, 5)
-	setErr := client.Set("key", "value1, 3600)
+	setErr := client.Set("key", "value1", 3600)
