@@ -188,7 +188,7 @@ Example:
 
 ## Server
 ###Storage types
-There are 3 implemented types of storages: memory, multi_memory and bolt. All storages have "garbage collector" (GC) to remove expired values from storage. Interval of GC running is defined by `storage_gc_interval` option.
+There are 3 implemented types of storages: memory, multi_memory and bolt. You can choose storage type by `storage_type` run option. All storages have "garbage collector" (GC) to remove expired values from storage. Interval of GC running is defined by `storage_gc_interval` option.
 
 ####Memory storage
 Memory storage is a simple in-memory storage with limited count of stored keys. Maximum size is defined by `storage_memory_size` option. Memory storage uses LRU algorithm, so less recent key will be removed in case of adding new key to full storage. 
