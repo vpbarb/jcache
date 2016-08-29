@@ -183,8 +183,8 @@ Example:
 
 	--> HCREATE hash 0\r\n
 	<-- OK\r\n
-	--> GET hash
-	<-- ERROR Key type is not string
+	--> GET hash\r\n
+	<-- ERROR Key type is not string\r\n
 
 ## Server
 ###Storage types
