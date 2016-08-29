@@ -8,7 +8,7 @@
 Supported **value** types:
 - string
 - hash (key-value subset)
-- list
+- list (note: list is not supported by Bolt storage type)
 
 Hash field key limitation is similar to key limitation.
 
