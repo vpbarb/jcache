@@ -197,7 +197,7 @@ Memory storage is a simple in-memory storage with limited count of stored keys. 
 It's the same in-memory storage but separated on several buckets. Distribution by buckets is normal and made by key check sum. Number of buckets is defined by `storage_multi_memory_count` option.
 
 ####Bolt
-This storage has underlying [Bolt](https://github.com/boltdb/bolt) file storage. Path to Bolt file is defined by `storage_boltdb_path` option. If file doesn't exist it will be created.
+This storage has underlying [Bolt](https://github.com/boltdb/bolt) file storage. Path to Bolt file is defined by `storage_boltdb_path` option. If file doesn't exist it will be created. **Important**: Bolt storage doesn't support list value type.
 
 ###Authentication
 If you want server supports authentication, just pass path to .htpasswd file with `htpasswd` option. If server is running with `htpasswd` option then it requires `AUTH` command with valid credentials after connection is open. All other commands will work only after valid authentication.
