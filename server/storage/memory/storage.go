@@ -31,22 +31,26 @@ func NewStorage(size int, gcInterval time.Duration) (*storage, error) {
 
 func (s *storage) gc(interval time.Duration) {
 	for _ = range time.Tick(interval) {
-		var deleteKeys []interface{}
-		s.mu.RLock()
-		for _, key := range s.lru.Keys() {
-			if raw, exists := s.lru.Get(key); exists {
-				if item, castOk := raw.(*commonStorage.Item); castOk && !item.IsAlive() {
-					deleteKeys = append(deleteKeys, key)
-				}
+		s.removeExpired()
+	}
+}
+
+func (s *storage) removeExpired() {
+	var deleteKeys []interface{}
+	s.mu.RLock()
+	for _, key := range s.lru.Keys() {
+		if raw, exists := s.lru.Peek(key); exists {
+			if item, castOk := raw.(*commonStorage.Item); castOk && !item.IsAlive() {
+				deleteKeys = append(deleteKeys, key)
 			}
 		}
-		s.mu.RUnlock()
-		if len(deleteKeys) > 0 {
-			for _, key := range deleteKeys {
-				s.mu.Lock()
-				s.lru.Remove(key)
-				s.mu.Unlock()
-			}
+	}
+	s.mu.RUnlock()
+	if len(deleteKeys) > 0 {
+		for _, key := range deleteKeys {
+			s.mu.Lock()
+			s.lru.Remove(key)
+			s.mu.Unlock()
 		}
 	}
 }

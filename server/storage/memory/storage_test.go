@@ -15,7 +15,7 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-func (s *StorageTestSuite) TestExpire(c *C) {
+func (s *StorageTestSuite) TestGetExpired(c *C) {
 	storage, _ := NewStorage(100, time.Minute)
 
 	storage.Set("key", "value", 1)
@@ -361,6 +361,15 @@ func (s *StorageTestSuite) TestListRange(c *C) {
 	c.Assert(err, ErrorMatches, "Key type is not list")
 	_, err = storage.ListRange("key3", 0, 0)
 	c.Assert(err, ErrorMatches, "Key does not exist")
+}
+
+func (s *StorageTestSuite) TestGC(c *C) {
+	storage, _ := NewStorage(100, time.Millisecond)
+	storage.Set("key", "value", 1)
+	c.Assert(storage.lru.Len(), Equals, 1)
+	// Wait for expiring + gc interval
+	time.Sleep(time.Second + time.Millisecond)
+	c.Assert(storage.lru.Len(), Equals, 0)
 }
 
 func (s *StorageTestSuite) BenchmarkGet(c *C) {
