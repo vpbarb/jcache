@@ -67,3 +67,7 @@ func (c *testConn) Read(p []byte) (int, error) {
 func (c *testConn) Write(p []byte) (int, error) {
 	return c.outWriter.Write(p)
 }
+
+func (c *testConn) Close() error {
+	return nil
+}

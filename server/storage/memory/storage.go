@@ -17,12 +17,12 @@ type storage struct {
 
 // NewStorage creates new memory storage
 func NewStorage(size int, gcInterval time.Duration) (*storage, error) {
-	cache, err := simplelru.NewLRU(size, nil)
+	lru, err := simplelru.NewLRU(size, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &storage{lru: cache}
+	s := &storage{lru: lru}
 
 	go s.gc(gcInterval)
 
