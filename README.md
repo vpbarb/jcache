@@ -41,7 +41,7 @@ Command updates key ttl. It works for **all** value types. It returns error if k
 	--> EXPIRE <key> <ttl>\r\n
 	<-- OK\r\n
 
-####GET
+#### GET
 Command returns string value by key. It works only for string value type. Command responses `VALUE N` where N is a length of following value. It returns error if key doesn't exist.
 
 	--> GET <key>\r\n
