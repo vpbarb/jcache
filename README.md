@@ -187,7 +187,7 @@ Example:
 	<-- ERROR Key type is not string\r\n
 
 ## Server
-###Storage types
+### Storage types
 There are 3 implemented types of storages: memory, multi_memory and bolt. You can choose storage type by `storage_type` run option. All storages have "garbage collector" (GC) to remove expired values from storage. Interval of GC running is defined by `storage_gc_interval` option.
 
 #### Memory storage
@@ -202,7 +202,7 @@ This storage has underlying [Bolt](https://github.com/boltdb/bolt) file storage.
 ### Authentication
 If you want server supports authentication, just pass path to .htpasswd file with `htpasswd` option. If server is running with `htpasswd` option then it requires `AUTH` command with valid credentials after connection is open. All other commands will work only after valid authentication.
 
-###H ow to build
+### How to build
 
 	git clone git@github.com:Barberrrry/jcache.git ./
 	make
